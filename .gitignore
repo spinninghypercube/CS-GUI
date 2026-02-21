@@ -15,3 +15,7 @@ server.js.pre-*
 # Local editor/project metadata
 .vscode/
 .idea/
+
+# Backup variants of main UI file
+public/index.html.*
+!public/index.html
