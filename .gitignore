@@ -19,3 +19,5 @@ server.js.pre-*
 # Backup variants of main UI file
 public/index.html.*
 !public/index.html
+.env.*
+!.env.example
