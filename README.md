@@ -6,6 +6,10 @@
 `CS-GUI` is an **add-on web interface** for [`cross-seed`](https://github.com/cross-seed/cross-seed).
 It gives you a browser UI for logs, jobs, and config management while your `cross-seed` daemon keeps doing the actual work.
 
+<img width="429" height="933" alt="logs success" src="https://github.com/user-attachments/assets/42437e58-6b48-44d7-b5d0-241269256d1c" />
+<img width="429" height="933" alt="config" src="https://github.com/user-attachments/assets/0e672e1e-9952-4182-91e4-5578e2ce0200" />
+
+
 ## Important
 
 - This project is **not** `cross-seed` itself.
