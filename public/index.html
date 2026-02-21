@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cross-seed</title>
+<link rel="stylesheet" href="/vendor/bulma.min.css">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --error: #f85149;
+    --warning: #d29922;
+    --info: #79c0ff;
+    --log-ts: #484f58;
+    --control-bg: #21262d;
+    --control-border: #30363d;
+    --toolbar-control-text: #ffffff;
+    --scroll-track: #161b22;
+    --scroll-thumb: #3b4450;
+    --scroll-thumb-hover: #586273;
+    --tab-inactive: #ffffff;
+    --tab-hover: #ffffff;
+  }
+  .app-body[data-theme='light'] {
+    --bg: #f2f5f9;
+    --surface: #ffffff;
+    --surface2: #e8edf4;
+    --border: #ccd6e2;
+    --text: #1f2937;
+    --muted: #5b6778;
+    --accent: #1862c6;
+    --success: #137e47;
+    --error: #bf3b34;
+    --warning: #936300;
+    --info: #1862c6;
+    --log-ts: #6b7280;
+    --control-bg: #e2e8f0;
+    --control-border: #b8c4d4;
+    --toolbar-control-text: #1f2937;
+    --scroll-track: #dce3ec;
+    --scroll-thumb: #9aa8bc;
+    --scroll-thumb-hover: #7f8ea5;
+    --tab-inactive: #334155;
+    --tab-hover: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Shell / Bulma overrides */
+  .app-body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--bulma-family-primary, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .navbar.app-navbar {
+    min-height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 12px;
+  }
+  .app-navbar .navbar-item { color: var(--text); }
+  .navbar.app-navbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+  }
+  .app-navbar .navbar-brand {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+  .app-navbar .app-navbar-menu.navbar-menu {
+    display: flex !important;
+    align-items: center;
+    flex: 1;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    box-shadow: none;
+    min-height: 0;
+  }
+  .app-navbar .navbar-start,
+  .app-navbar .navbar-end {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+  .app-navbar .navbar-end { margin-left: auto; }
+  .app-navbar .navbar-item {
+    white-space: nowrap;
+    padding: 0.35rem 0.5rem;
+  }
+  @media (max-width: 768px) {
+    .navbar.app-navbar { padding: 0 8px; }
+    .app-navbar .navbar-item { padding: 0.3rem 0.35rem; }
+    .logo { font-size: 14px; gap: 6px; }
+    .version-tag { font-size: 10px; }
+  }
+  .logo { font-weight: 700; font-size: 16px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .logo-icon { color: var(--success); font-size: 18px; }
+  .status-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
+  .dot.up { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .dot.down { background: var(--error); }
+  .version-tag {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .theme-toggle-btn {
+    width: 1.9rem;
+    height: 1.75rem;
+    min-width: 1.9rem;
+    padding: 0;
+    color: var(--text);
+    border-color: var(--border);
+    background: var(--surface2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 0.95rem;
+  }
+  .theme-toggle-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .app-navbar .button.is-light { border-color: var(--border); }
+  .app-body[data-theme='dark'] .app-navbar .button.is-light {
+    background: #e6edf3;
+    color: #0f172a;
+  }
+  .app-body[data-theme='dark'] .app-navbar .button.is-light:hover {
+    background: #cfd8e3;
+    color: #0f172a;
+  }
+  .app-body[data-theme='light'] .app-navbar .button.is-light {
+    background: #1f2937;
+    color: #f8fafc;
+    border-color: #1f2937;
+  }
+  .app-body[data-theme='light'] .app-navbar .button.is-light:hover {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+  }
+
+  .tabs.app-tabs {
+    margin: 0;
+    padding: 0 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tabs.app-tabs ul { border-bottom: none; }
+  .tabs.app-tabs a.tab {
+    color: var(--tab-inactive);
+    border-color: transparent;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tabs.app-tabs a.tab:hover { color: var(--tab-hover); border-color: transparent; }
+  .tabs.app-tabs li.is-active a.tab,
+  .tabs.app-tabs a.tab.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; margin: 0 !important; padding: 0; }
+  .panel { display: none; flex: 1; overflow: hidden; flex-direction: column; margin: 0 !important; border: none; box-shadow: none; border-radius: 0; }
+  .panel.active { display: flex; }
+
+  /* Toast */
+  #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
+  .toast { padding: 10px 16px; border-radius: 6px; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); animation: slideIn 0.2s ease; max-width: 340px; }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error { border-color: var(--error); color: var(--error); }
+  .toast.info { border-color: var(--accent); color: var(--accent); }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ── LOGS PANEL ── */
+  .logs-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; width: 100%; }
+  .log-type-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .log-type-btn.button { min-width: 86px; color: var(--toolbar-control-text); border-color: var(--control-border); background: var(--control-bg); }
+  .log-type-btn.button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .log-range-select.select-like { padding: 5px 10px; background: var(--control-bg); border: 1px solid var(--control-border); border-radius: 6px; color: var(--toolbar-control-text); font-size: 12px; cursor: pointer; outline: none; }
+  .log-range-select.select-like:focus { border-color: var(--accent); }
+  option { background: var(--surface2); }
+  .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .auto-scroll-label { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--toolbar-control-text); font-size: 12px; user-select: none; }
+  .auto-scroll-label input { accent-color: var(--accent); cursor: pointer; }
+  #panel-logs .logs-toolbar .button,
+  #panel-logs .logs-toolbar .log-range-select,
+  #panel-logs .logs-toolbar .auto-scroll-label { color: var(--toolbar-control-text) !important; }
+  #panel-logs .logs-toolbar .log-range-select option { color: var(--toolbar-control-text); }
+
+  /* Job buttons inline */
+  .job-btn.button { color: var(--toolbar-control-text); border-color: var(--control-border); background: var(--control-bg); display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+  .job-btn.button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .job-btn.button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .job-btn.button.running { border-color: var(--warning); color: var(--warning); }
+  .job-btn.button.success { border-color: var(--success); color: var(--success); }
+  .job-btn.button.error-state { border-color: var(--error); color: var(--error); }
+  .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #log-viewer { flex: 1; overflow-y: auto; padding: 10px 16px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; line-height: 1.6; background: var(--bg); }
+  #log-viewer,
+  #config-editor {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  }
+  #log-viewer::-webkit-scrollbar,
+  #config-editor::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  #log-viewer::-webkit-scrollbar-track,
+  #config-editor::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+  }
+  #log-viewer::-webkit-scrollbar-thumb,
+  #config-editor::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 10px;
+    border: 2px solid var(--scroll-track);
+  }
+  #log-viewer::-webkit-scrollbar-thumb:hover,
+  #config-editor::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+  }
+  .log-line { padding: 1px 0; white-space: pre-wrap; word-break: break-all; }
+  .log-line .ts { color: var(--log-ts); }
+  .log-line .level-verbose { color: var(--muted); }
+  .log-line .level-info { color: var(--info); }
+  .log-line .level-error { color: var(--error); }
+  .log-line .level-warn { color: var(--warning); }
+  .log-line .tag { color: #6e40c9; }
+  .log-line .msg-verbose { color: #6e7681; }
+  .log-line .msg-info { color: var(--text); }
+  .log-line .msg-error { color: var(--error); }
+  .log-line .msg-warn { color: var(--warning); }
+  .log-line .tracker-name {
+    color: var(--tracker-color);
+    font-weight: 700;
+    text-shadow: 0 0 8px currentColor;
+  }
+  .log-status { color: var(--muted); font-style: italic; padding: 8px 0; }
+
+  .range-selects { display: flex; gap: 8px; }
+  .job-buttons { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .job-buttons .job-btn, .job-buttons #btn-restart { flex: 1; justify-content: center; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 640px) {
+    .logs-toolbar { flex-wrap: wrap; }
+    .log-type-toggle { width: 100%; }
+    .log-type-btn { flex: 1; text-align: center; }
+    .range-selects { width: 100%; }
+    .range-selects .log-range-select { flex: 1; min-width: 0; }
+    .job-buttons { width: 100%; flex: none; }
+    .toolbar-sep { display: none; }
+    .toolbar-right { width: 100%; margin-left: 0; }
+    .config-content { max-width: 100%; }
+  }
+
+  /* ── CONFIG PANEL ── */
+  #panel-config { background: transparent; border: none; }
+  .config-toolbar { padding: 10px 0 12px; background: transparent; border-bottom: none; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .config-content { flex: 1; width: 100%; max-width: 100%; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; }
+  @media (min-width: 1024px) {
+    .config-content { max-width: 60%; }
+  }
+  .config-toolbar-info { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .cfg-help-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); user-select: none; cursor: pointer; }
+  .cfg-help-toggle input { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+  .cfg-help-text { margin: 0 0 8px; color: var(--muted); font-size: 11px; line-height: 1.45; white-space: pre-wrap; }
+  .cfg-help-text a { color: var(--accent); text-decoration: underline; word-break: break-all; }
+  .cfg-help-text a:hover { opacity: 0.9; }
+  .btn-primary { padding: 7px 16px; border-radius: 6px; border: none; background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; font-weight: 500; transition: opacity 0.15s; }
+  .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  #config-editor { flex: 1; overflow-y: auto; padding: 0 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  .cfg-field { border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); padding: 10px; }
+  .cfg-field.nested { margin-left: 0; border-left: 2px solid var(--border); }
+  .cfg-field-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cfg-key { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; font-weight: 700; color: var(--text); min-width: 190px; }
+  .cfg-input { padding: 6px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 12px; }
+  .cfg-input:focus { outline: none; border-color: var(--accent); }
+  .cfg-input { width: 100%; min-width: 180px; }
+  .cfg-note { color: var(--muted); font-size: 12px; }
+  .cfg-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cfg-array-list, .cfg-object-list { display: flex; flex-direction: column; gap: 8px; }
+  .cfg-group {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 10px;
+  }
+  .cfg-group + .cfg-group { margin-top: 2px; }
+  .cfg-group-title {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .cfg-group-body { display: flex; flex-direction: column; gap: 8px; }
+  .cfg-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .cfg-danger { border-color: var(--error); color: var(--error); }
+  .cfg-add-row { margin-top: 8px; margin-left: 0; display: flex; gap: 8px; align-items: center; }
+  .cfg-add-controls { margin-top: 8px; margin-left: 0; }
+  .cfg-add-row .cfg-input { flex: 1; }
+</style>
+</head>
+<body class="app-body">
+
+<header class="navbar is-dark app-navbar" role="banner">
+  <div class="navbar-brand">
+    <div class="navbar-item logo">
+      <span class="logo-icon">⟳</span>
+      <span>CS-GUI</span>
+    </div>
+  </div>
+  <div class="navbar-menu is-active app-navbar-menu">
+    <div class="navbar-start">
+      <div class="navbar-item">
+        <div class="status-badge">
+          <div class="dot" id="daemon-dot"></div>
+          <span id="daemon-label">checking...</span>
+        </div>
+      </div>
+    </div>
+    <div class="navbar-end">
+      <div class="navbar-item">
+        <button class="button is-small is-light theme-toggle-btn" id="btn-theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">🌙</button>
+      </div>
+      <div class="navbar-item">
+        <button class="button is-small is-light" id="btn-logout">Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs is-boxed is-small app-tabs" aria-label="Main tabs">
+  <ul>
+    <li class="is-active"><a href="#" class="tab active" data-panel="logs">Logs</a></li>
+    <li><a href="#" class="tab" data-panel="config">cross-seed config</a></li>
+  </ul>
+</nav>
+
+<div class="content">
+
+  <!-- LOGS -->
+  <div class="panel active" id="panel-logs">
+    <div class="logs-toolbar">
+      <div class="log-type-toggle">
+        <button class="button is-small is-dark log-type-btn active" data-type="verbose">Verbose</button>
+        <button class="button is-small is-dark log-type-btn" data-type="error">Error</button>
+        <button class="button is-small is-dark log-type-btn" data-type="success">Success</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div class="range-selects">
+        <select class="log-range-select select-like" id="select-lines">
+          <option value="">Past X lines</option>
+          <option value="100">Past 100 lines</option>
+          <option value="300" selected>Past 300 lines</option>
+          <option value="500">Past 500 lines</option>
+          <option value="1000">Past 1000 lines</option>
+          <option value="5000">Past 5000 lines</option>
+          <option value="all">All lines</option>
+        </select>
+        <select class="log-range-select select-like" id="select-since">
+          <option value="">Past X time</option>
+          <option value="1h">Past 1h</option>
+          <option value="5h">Past 5h</option>
+          <option value="1d">Past 1 day</option>
+          <option value="1w">Past 1 week</option>
+          <option value="1m">Past 1 month</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div class="job-buttons">
+        <button class="button is-small is-dark is-outlined job-btn" id="btn-job-rss" data-job="rss">📡 RSS</button>
+        <button class="button is-small is-dark is-outlined job-btn" id="btn-job-search" data-job="search">🔍 Search</button>
+        <button class="button is-small is-dark is-outlined job-btn" id="btn-job-inject" data-job="inject">💉 Inject</button>
+        <button class="button is-small is-danger is-outlined" id="btn-restart" style="border-color:var(--error);color:var(--error)">↺ Restart</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-right">
+        <label class="auto-scroll-label">
+          <input type="checkbox" id="auto-scroll" checked>
+          Auto-scroll
+        </label>
+        <button class="button is-small is-dark is-outlined" id="btn-clear-logs">Clear</button>
+        <button class="button is-small is-dark is-outlined" id="btn-pause-logs">Pause</button>
+      </div>
+    </div>
+    <div id="log-viewer">
+      <div class="log-status">Connecting to log stream...</div>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="panel" id="panel-config">
+    <div class="config-content">
+    <div class="config-toolbar">
+      <button class="button is-small is-dark is-outlined" id="btn-reload-config">Reload from disk</button>
+      <button class="button is-small is-link" id="btn-save-config">Save Config</button>
+      <label class="cfg-help-toggle" for="toggle-config-help">
+        <input type="checkbox" id="toggle-config-help">
+        <span>Full help</span>
+      </label>
+      <span class="config-toolbar-info" id="config-info">loading... · ui4</span>
+    </div>
+    <div id="config-editor"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+let logType = 'verbose';
+let logFilter = null; // null = show all, 'success' = filter client-side
+let selectedLogView = 'verbose';
+let logPaused = false;
+let autoScroll = true;
+let logEventSource = null;
+let lineCount = 0;
+let pendingLines = [];
+let streamGen = 0; // incremented on every new stream; prevents stale ready events
+const MAX_LINES = 1000;
+const BATCH_SIZE = 200; // max lines rendered per 100ms tick
+const UI_STATE_KEY = 'cross-seed-ui-state-v1';
+const uiState = loadUiState();
+let showConfigHelp = uiState.configShowHelp === true;
+
+function loadUiState() {
+  try {
+    const raw = localStorage.getItem(UI_STATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveUiState(patch) {
+  Object.assign(uiState, patch || {});
+  try {
+    localStorage.setItem(UI_STATE_KEY, JSON.stringify(uiState));
+  } catch (_) {}
+}
+
+function setTheme(theme, persist = true) {
+  const normalized = theme === 'light' ? 'light' : 'dark';
+  document.body.dataset.theme = normalized;
+  const toggleBtn = document.getElementById('btn-theme-toggle');
+  if (toggleBtn) {
+    const icon = normalized === 'dark' ? '🌙' : '☀';
+    const label = normalized === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    toggleBtn.textContent = icon;
+    toggleBtn.setAttribute('aria-label', label);
+    toggleBtn.setAttribute('title', label);
+  }
+  if (persist) saveUiState({ theme: normalized });
+}
+
+function restoreUiStateToControls() {
+  const linesSelect = document.getElementById('select-lines');
+  const sinceSelect = document.getElementById('select-since');
+  const autoScrollInput = document.getElementById('auto-scroll');
+  const configHelpToggle = document.getElementById('toggle-config-help');
+
+  if (typeof uiState.logLines === 'string' && linesSelect) {
+    linesSelect.value = uiState.logLines;
+  }
+  if (typeof uiState.logSince === 'string' && sinceSelect) {
+    sinceSelect.value = uiState.logSince;
+  }
+
+  if (sinceSelect && sinceSelect.value && linesSelect) {
+    linesSelect.value = '';
+  } else if (linesSelect && linesSelect.value && sinceSelect) {
+    sinceSelect.value = '';
+  }
+
+  if (typeof uiState.autoScroll === 'boolean' && autoScrollInput) {
+    autoScroll = uiState.autoScroll;
+    autoScrollInput.checked = autoScroll;
+  }
+
+  if (typeof uiState.logView === 'string' && ['verbose', 'error', 'success'].includes(uiState.logView)) {
+    selectedLogView = uiState.logView;
+  }
+  if (configHelpToggle) {
+    configHelpToggle.checked = showConfigHelp;
+  }
+
+  setTheme(uiState.theme || 'dark', false);
+}
+
+restoreUiStateToControls();
+
+// Flush pending lines to DOM every 100ms in controlled batches
+setInterval(() => {
+  if (pendingLines.length === 0) return;
+  // If there's more than we'll ever show, drop the oldest to avoid processing thousands of lines
+  if (pendingLines.length > MAX_LINES) pendingLines = pendingLines.slice(-MAX_LINES);
+  const batch = pendingLines.splice(0, BATCH_SIZE);
+  const viewer = document.getElementById('log-viewer');
+  const placeholder = viewer.querySelector('.log-status');
+  if (placeholder) placeholder.remove();
+  const fragment = document.createDocumentFragment();
+  for (const line of batch) fragment.appendChild(colorLine(line));
+  viewer.appendChild(fragment);
+  while (viewer.children.length > MAX_LINES) viewer.removeChild(viewer.firstChild);
+  lineCount = viewer.children.length;
+  if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
+}, 100);
+
+const SUCCESS_PATTERN = /\binfo:.*\bMATCH(_PARTIAL)?\b.*- injected/;
+
+// ── Tabs ───────────────────────────────────────────────
+function setActivePanel(panelName, persist = true) {
+  const fallbackTab = document.querySelector('.tab[data-panel="logs"]');
+  const targetTab = document.querySelector('.tab[data-panel="' + panelName + '"]') || fallbackTab;
+  if (!targetTab) return;
+  const targetPanel = targetTab.dataset.panel;
+
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.app-tabs li').forEach(li => li.classList.remove('is-active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+
+  targetTab.classList.add('active');
+  if (targetTab.parentElement) targetTab.parentElement.classList.add('is-active');
+
+  const panelEl = document.getElementById('panel-' + targetPanel);
+  if (panelEl) panelEl.classList.add('active');
+  if (targetPanel === 'config') loadConfig();
+  if (persist) saveUiState({ activePanel: targetPanel });
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', (event) => {
+    event.preventDefault();
+    setActivePanel(tab.dataset.panel, true);
+  });
+});
+
+// ── Toast ──────────────────────────────────────────────
+function toast(msg, type = 'info', duration = 4000) {
+  const el = document.createElement('div');
+  el.className = `toast notification is-light ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ── Daemon ping ────────────────────────────────────────
+async function pingDaemon() {
+  const dot = document.getElementById('daemon-dot');
+  const label = document.getElementById('daemon-label');
+  try {
+    const r = await fetch('/api/ping');
+    const data = await r.json();
+    if (data.status === 'up') {
+      dot.className = 'dot up';
+      label.textContent = 'Daemon online';
+    } else {
+      dot.className = 'dot down';
+      label.textContent = 'Daemon offline';
+    }
+  } catch {
+    dot.className = 'dot down';
+    label.textContent = 'Daemon offline';
+  }
+}
+pingDaemon();
+setInterval(pingDaemon, 15000);
+
+// ── Log coloring ───────────────────────────────────────
+function colorLine(raw) {
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(verbose|info|error|warn):\s+(\[[^\]]+\])\s*(.*)$/);
+  if (!m) {
+    const el = document.createElement('div');
+    el.className = 'log-line';
+    el.style.color = 'var(--muted)';
+    el.textContent = raw;
+    return el;
+  }
+  const [, ts, level, tag, msg] = m;
+  const el = document.createElement('div');
+  el.className = 'log-line';
+  el.innerHTML =
+    `<span class="ts">${ts}</span> ` +
+    `<span class="level-${level}">${level}:</span> ` +
+    `<span class="tag">${escHtml(tag)}</span> ` +
+    `<span class="msg-${level}">${highlightTrackers(msg)}</span>`;
+  return el;
+}
+
+const trackerColorCache = new Map();
+
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function getTrackerColor(name) {
+  if (!trackerColorCache.has(name)) {
+    const hue = hashString(name) % 360;
+    trackerColorCache.set(name, `hsl(${hue}deg 95% 68%)`);
+  }
+  return trackerColorCache.get(name);
+}
+
+function extractTrackers(msg) {
+  const trackers = new Set();
+  const NON_TRACKER_NAMES = new Set(['dataDir', 'torrentClient', 'indexers', 'indexer', 'scheduler', 'watcher']);
+  let m;
+
+  const addTracker = (name) => {
+    const tracker = String(name || '').trim();
+    if (!tracker) return;
+    const lower = tracker.toLowerCase();
+    if (NON_TRACKER_NAMES.has(tracker)) return;
+    if (lower.startsWith('datadir') || lower.startsWith('torrentclient')) return;
+    if (/^(https?:\/\/|\/)/i.test(tracker)) return;
+    trackers.add(tracker);
+  };
+
+  const queryRe = /\bQuerying\s+(.+?)\s+at\s+https?:\/\/\S+/g;
+  while ((m = queryRe.exec(msg)) !== null) addTracker(m[1]);
+
+  const onByRe = /\bon\s+(.+?)\s+by\s+MATCH(?:_PARTIAL|_SIZE_ONLY)?\b/g;
+  while ((m = onByRe.exec(msg)) !== null) addTracker(m[1]);
+
+  const pagingRe = /\bPaging\s+(.+?)\s+stopped\b/g;
+  while ((m = pagingRe.exec(msg)) !== null) addTracker(m[1]);
+
+  const fromRe = /\bfrom\s+([A-Za-z][A-Za-z0-9 .'+()_&-]{1,64}?)(?=(?:\s+-|\s+\||$))/g;
+  while ((m = fromRe.exec(msg)) !== null) addTracker(m[1]);
+
+  return Array.from(trackers);
+}
+
+function highlightTrackers(msg) {
+  const trackers = extractTrackers(msg);
+  if (!trackers.length) return escHtml(msg);
+
+  const placeholders = [];
+  let marked = msg;
+  trackers.sort((a, b) => b.length - a.length).forEach((tracker, idx) => {
+    const token = `__TRACKER_${idx}__`;
+    placeholders.push({ token, tracker });
+    marked = marked.split(tracker).join(token);
+  });
+
+  let html = escHtml(marked);
+  placeholders.forEach(({ token, tracker }) => {
+    const label = escHtml(tracker);
+    const color = getTrackerColor(tracker);
+    const span = `<span class="tracker-name" style="--tracker-color:${color}">${label}</span>`;
+    html = html.split(token).join(span);
+  });
+
+  return html;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Log stream ─────────────────────────────────────────
+function appendLine(raw) {
+  if (logPaused) return;
+  if (logFilter === 'success' && !SUCCESS_PATTERN.test(raw)) return;
+  pendingLines.push(raw);
+}
+
+function startLogStream(type) {
+  if (logEventSource) logEventSource.close();
+  const viewer = document.getElementById('log-viewer');
+  viewer.innerHTML = '<div class="log-status">Retrieving...</div>';
+  lineCount = 0;
+  pendingLines = [];
+  const myGen = ++streamGen; // capture generation for this stream
+
+  const lines = document.getElementById('select-lines').value;
+  const since = document.getElementById('select-since').value;
+  const params = new URLSearchParams({ type });
+  if (logFilter === 'success') params.set('filter', 'success');
+  if (since) params.set('since', since);
+  else if (lines) params.set('lines', lines);
+  else params.set('lines', '300');
+
+  logEventSource = new EventSource(`/api/logs/stream?${params}`);
+  logEventSource.onmessage = (e) => {
+    if (streamGen !== myGen) return; // stale stream, ignore
+    try { appendLine(JSON.parse(e.data)); } catch (_) { appendLine(e.data); }
+  };
+  logEventSource.addEventListener('ready', (e) => {
+    if (streamGen !== myGen) return; // stale stream, ignore
+    const { count } = JSON.parse(e.data);
+    if (count === 0 && pendingLines.length === 0 && lineCount === 0) {
+      viewer.innerHTML = '<div class="log-status">No results for this filter.</div>';
+    } else if (count > 0) {
+      // Server found lines — update placeholder so it's visible while batch renderer catches up
+      const status = viewer.querySelector('.log-status');
+      if (status) status.textContent = `Loading ${count} lines…`;
+    }
+  });
+  logEventSource.onerror = () => {
+    if (streamGen !== myGen) return;
+    const s = document.createElement('div');
+    s.className = 'log-status';
+    s.textContent = 'Stream disconnected. Reconnecting...';
+    document.getElementById('log-viewer').appendChild(s);
+  };
+}
+
+function applyLogView(type, restartStream = true) {
+  const nextType = ['verbose', 'error', 'success'].includes(type) ? type : 'verbose';
+  selectedLogView = nextType;
+
+  document.querySelectorAll('.log-type-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.type === nextType);
+  });
+
+  if (nextType === 'success') {
+    logFilter = 'success';
+    logType = 'verbose';
+    if (restartStream) startLogStream('verbose');
+  } else {
+    logFilter = null;
+    logType = nextType;
+    if (restartStream) startLogStream(nextType);
+  }
+
+  saveUiState({ logView: nextType });
+}
+
+document.getElementById('select-lines').addEventListener('change', (e) => {
+  if (e.target.value) document.getElementById('select-since').value = '';
+  saveUiState({
+    logLines: document.getElementById('select-lines').value,
+    logSince: document.getElementById('select-since').value,
+  });
+  startLogStream(logType);
+});
+
+document.getElementById('select-since').addEventListener('change', (e) => {
+  if (e.target.value) document.getElementById('select-lines').value = '';
+  saveUiState({
+    logLines: document.getElementById('select-lines').value,
+    logSince: document.getElementById('select-since').value,
+  });
+  startLogStream(logType);
+});
+
+document.querySelectorAll('.log-type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyLogView(btn.dataset.type, true);
+  });
+});
+
+applyLogView(selectedLogView, true);
+
+document.getElementById('auto-scroll').addEventListener('change', (e) => {
+  autoScroll = e.target.checked;
+  saveUiState({ autoScroll });
+});
+
+document.getElementById('log-viewer').addEventListener('scroll', (e) => {
+  const el = e.target;
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  if (!atBottom && autoScroll) {
+    autoScroll = false;
+    document.getElementById('auto-scroll').checked = false;
+    saveUiState({ autoScroll });
+  }
+});
+
+document.getElementById('btn-clear-logs').addEventListener('click', () => {
+  document.getElementById('log-viewer').innerHTML = '';
+  pendingLines = [];
+  lineCount = 0;
+});
+
+document.getElementById('btn-pause-logs').addEventListener('click', (e) => {
+  logPaused = !logPaused;
+  e.target.textContent = logPaused ? 'Resume' : 'Pause';
+  e.target.style.color = logPaused ? 'var(--warning)' : '';
+});
+
+// ── Job buttons ────────────────────────────────────────
+document.querySelector('.job-buttons').querySelectorAll('.job-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const jobName = btn.dataset.job;
+    const origHTML = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.className = 'button is-small is-dark is-outlined job-btn running';
+    btn.innerHTML = `<span class="spinner"></span> ${jobName}`;
+
+    try {
+      const r = await fetch(`/api/job/${jobName}`, { method: 'POST' });
+      const data = await r.json();
+      if (r.ok || r.status === 202) {
+        btn.className = 'button is-small is-dark is-outlined job-btn success';
+        btn.innerHTML = `✓ ${jobName}`;
+        toast(`${jobName}: ${data.response || 'triggered'}`, 'success');
+      } else {
+        btn.className = 'button is-small is-dark is-outlined job-btn error-state';
+        btn.innerHTML = `✗ ${jobName}`;
+        toast(`${jobName} failed: ${JSON.stringify(data.response || data.error)}`, 'error', 6000);
+      }
+    } catch (err) {
+      btn.className = 'button is-small is-dark is-outlined job-btn error-state';
+      btn.innerHTML = `✗ ${jobName}`;
+      toast(`Error: ${err.message}`, 'error');
+    }
+
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.className = 'button is-small is-dark is-outlined job-btn';
+      btn.innerHTML = origHTML;
+    }, 4000);
+  });
+});
+
+// ── Restart ────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('btn-restart');
+  let confirming = false;
+  let timer = null;
+
+  btn.addEventListener('click', async () => {
+    if (!confirming) {
+      confirming = true;
+      btn.textContent = 'Sure?';
+      btn.style.background = 'var(--error)';
+      btn.style.color = '#fff';
+      timer = setTimeout(() => {
+        confirming = false;
+        btn.textContent = '↺ Restart';
+        btn.style.background = '';
+        btn.style.color = 'var(--error)';
+      }, 3000);
+      return;
+    }
+    clearTimeout(timer);
+    confirming = false;
+    btn.disabled = true;
+    btn.textContent = 'Restarting...';
+    btn.style.background = '';
+    btn.style.color = 'var(--warning)';
+    try {
+      await fetch('/api/restart', { method: 'POST' });
+      btn.textContent = '✓ Restarted';
+      btn.style.color = 'var(--success)';
+      toast('cross-seed daemon restarted', 'success');
+    } catch {
+      btn.textContent = '✗ Failed';
+      btn.style.color = 'var(--error)';
+      toast('Restart failed', 'error');
+    }
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = '↺ Restart';
+      btn.style.color = 'var(--error)';
+    }, 3000);
+  });
+})();
+
+// ── Config ─────────────────────────────────────────────
+let configLoaded = false;
+let configData = null;
+let configOptionMap = new Map();
+let configHelpMap = new Map();
+const UI_BUILD_LABEL = 'ui4';
+let configVersionLabel = 'loading... · ' + UI_BUILD_LABEL;
+const CONFIG_OPTION_FALLBACKS = Object.freeze({
+  action: ['save', 'inject'],
+  linkType: ['symlink', 'hardlink', 'reflink'],
+  matchMode: ['strict', 'flexible', 'partial'],
+});
+
+function typeOfValue(value) {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') return 'object';
+  return typeof value;
+}
+
+function formatVersionLabel(version) {
+  const clean = String(version || '').trim();
+  if (!clean) return 'unknown · ' + UI_BUILD_LABEL;
+  const prefixed = clean.startsWith('v') ? clean : 'v' + clean;
+  return prefixed + ' · ' + UI_BUILD_LABEL;
+}
+
+function setConfigInfoLabel() {
+  const info = document.getElementById('config-info');
+  if (info) info.textContent = configVersionLabel;
+}
+
+async function loadVersionLabel() {
+  try {
+    const r = await fetch('/api/version');
+    const data = await r.json();
+    configVersionLabel = formatVersionLabel(data.crossSeedVersion);
+  } catch (_) {
+    configVersionLabel = formatVersionLabel('');
+  }
+  setConfigInfoLabel();
+}
+
+
+function parseConfigContent(content) {
+  const module = { exports: {} };
+  const exports = module.exports;
+  const fn = new Function('module', 'exports', content + '\n;return module.exports;');
+  const parsed = fn(module, exports);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Config did not export an object');
+  }
+  return parsed;
+}
+
+function parseConfigOptionHints(content) {
+  const result = new Map();
+  const blockRe = /\/\*\*([\s\S]*?)\*\/\s*([A-Za-z_$][\w$]*)\s*:/g;
+  let blockMatch;
+
+  function pushToken(options, token) {
+    if (token === undefined || token === null) return;
+    const raw = String(token)
+      .trim()
+      .replace(/^[\"'`]+|[\"'`]+$/g, '')
+      .replace(/[.,;:]$/, '');
+    if (!raw) return;
+
+    if (/^(?:null|undefined|true|false)$/i.test(raw)) {
+      options.push(raw.toLowerCase());
+      return;
+    }
+
+    if (/^-?\d+(?:\.\d+)?$/.test(raw)) {
+      options.push(raw);
+      return;
+    }
+
+    if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(raw)) {
+      options.push(raw);
+    }
+  }
+
+  while ((blockMatch = blockRe.exec(content)) !== null) {
+    const comment = blockMatch[1] || '';
+    const key = blockMatch[2];
+    const options = [];
+
+    const optionsLineRe = /Options?:\s*([^\n\r*]+)/ig;
+    let optionsLine;
+    while ((optionsLine = optionsLineRe.exec(comment)) !== null) {
+      const line = optionsLine[1] || '';
+      for (const q of line.matchAll(/"([^"]+)"|'([^']+)'|`([^`]+)`/g)) {
+        const value = (q[1] || q[2] || q[3] || '').trim();
+        if (value) options.push(value);
+      }
+      line.split(',').forEach((part) => pushToken(options, part));
+    }
+
+    if (!/\bExamples?:/i.test(comment)) {
+      const dashedLineRe = /^\s*\*\s*([^\n\r*]+?)\s*-\s+/gm;
+      let dashedLine;
+      while ((dashedLine = dashedLineRe.exec(comment)) !== null) {
+        const tokenPart = dashedLine[1] || '';
+        for (const q of tokenPart.matchAll(/"([^"]+)"|'([^']+)'|`([^`]+)`/g)) {
+          const value = (q[1] || q[2] || q[3] || '').trim();
+          if (value) options.push(value);
+        }
+        pushToken(options, tokenPart);
+      }
+    }
+
+    const unique = [];
+    const seen = new Set();
+    for (const token of options) {
+      const normalized = String(token).trim();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      unique.push(normalized);
+    }
+
+    if (unique.length >= 2) {
+      result.set(key, unique);
+    }
+  }
+
+  return result;
+}
+
+function parseConfigHelpHints(content) {
+  const result = new Map();
+  const blockRe = /\/\*\*([\s\S]*?)\*\/\s*([A-Za-z_$][\w$]*)\s*:/g;
+  let blockMatch;
+  const noiseLinePatterns = [
+    /^WARNING!/i,
+    /^\/\*+\s*$/,
+    /^\*\/\s*$/,
+    /^\/\s*$/,
+    /POTENTIALLY SENSITIVE CONFIGURATION OPTIONS/i,
+    /START COPYING FROM/i,
+    /SHARE YOUR CONFIGURATION SETTINGS/i,
+    /THE NEXT\s+\d+\s+OPTIONS CONTAIN/i,
+  ];
+
+  while ((blockMatch = blockRe.exec(content)) !== null) {
+    const comment = blockMatch[1] || '';
+    const key = blockMatch[2];
+    const lines = comment
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*\*\s?/, '').trim())
+      .filter((line) => line && !noiseLinePatterns.some((pattern) => pattern.test(line)));
+    if (!lines.length) continue;
+    result.set(key, lines.join('\n'));
+  }
+
+  return result;
+}
+
+function getOptionValuesForKey(key) {
+  if (typeof key !== 'string') return null;
+  const hintedOptions = configOptionMap.get(key);
+  if (Array.isArray(hintedOptions) && hintedOptions.length) return hintedOptions;
+  const fallbackOptions = CONFIG_OPTION_FALLBACKS[key];
+  if (Array.isArray(fallbackOptions) && fallbackOptions.length) return fallbackOptions;
+  return null;
+}
+
+function getHelpTextForKey(key) {
+  if (typeof key !== 'string') return '';
+  return configHelpMap.get(key) || '';
+}
+
+function linkifyHelpText(text) {
+  const source = String(text || '');
+  const urlRe = /https?:\/\/[^\s]+/g;
+  let html = '';
+  let cursor = 0;
+  let match;
+
+  while ((match = urlRe.exec(source)) !== null) {
+    let url = match[0];
+    let trailing = '';
+    while (url && /[),.;:]$/.test(url)) {
+      trailing = url.slice(-1) + trailing;
+      url = url.slice(0, -1);
+    }
+    if (!url) continue;
+
+    html += escHtml(source.slice(cursor, match.index));
+    const safeUrl = escHtml(url);
+    if (/(cross-seed|github)/i.test(url)) {
+      html += `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`;
+    } else {
+      html += safeUrl;
+    }
+    html += escHtml(trailing);
+    cursor = match.index + match[0].length;
+  }
+
+  html += escHtml(source.slice(cursor));
+  return html;
+}
+
+function normalizeOptionToken(token, currentType) {
+  if (token === 'null') return null;
+  if (token === 'undefined') return undefined;
+  if (token === 'true') return true;
+  if (token === 'false') return false;
+  if (currentType === 'number' && /^-?\d+(?:\.\d+)?$/.test(token)) {
+    const parsed = Number(token);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return token;
+}
+
+function valueToOptionToken(value) {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return String(value);
+}
+
+function formatOptionLabel(token) {
+  return token;
+}
+
+function formatJsKey(key) {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
+}
+
+function formatJsValue(value, indent = 0) {
+  const pad = '  '.repeat(indent);
+  const childPad = '  '.repeat(indent + 1);
+
+  if (value === undefined) return 'undefined';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '0';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]';
+    const lines = value.map((item) => childPad + formatJsValue(item, indent + 1));
+    return '[\n' + lines.join(',\n') + ',\n' + pad + ']';
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    if (entries.length === 0) return '{}';
+    const lines = entries.map(([key, item]) => childPad + formatJsKey(key) + ': ' + formatJsValue(item, indent + 1));
+    return '{\n' + lines.join(',\n') + ',\n' + pad + '}';
+  }
+
+  return 'null';
+}
+
+function buildConfigContent(configObj) {
+  return '"use strict";\nmodule.exports = ' + formatJsValue(configObj, 0) + ';\n';
+}
+
+
+function renderPrimitiveBody(container, parent, key) {
+  const value = parent[key];
+  const type = typeOfValue(value);
+  const optionValues = getOptionValuesForKey(key);
+
+  if (optionValues && optionValues.length) {
+    const select = document.createElement('select');
+    select.className = 'cfg-input cfg-select';
+
+    const currentToken = valueToOptionToken(value);
+    const tokens = optionValues.slice();
+    if (!tokens.includes(currentToken)) tokens.unshift(currentToken);
+
+    tokens.forEach((token) => {
+      const option = document.createElement('option');
+      option.value = token;
+      option.textContent = formatOptionLabel(token);
+      select.appendChild(option);
+    });
+
+    select.value = currentToken;
+    select.addEventListener('change', () => {
+      parent[key] = normalizeOptionToken(select.value, type);
+    });
+
+    container.appendChild(select);
+    return;
+  }
+
+  if (type === 'string') {
+    const input = document.createElement('input');
+    input.className = 'cfg-input';
+    input.type = 'text';
+    input.value = value;
+    input.addEventListener('input', () => { parent[key] = input.value; });
+    container.appendChild(input);
+    return;
+  }
+
+  if (type === 'number') {
+    const input = document.createElement('input');
+    input.className = 'cfg-input';
+    input.type = 'number';
+    input.step = 'any';
+    input.value = String(value);
+    input.addEventListener('change', () => {
+      const parsed = Number(input.value);
+      if (!Number.isFinite(parsed)) {
+        toast('Invalid number for ' + key, 'error');
+        input.value = String(parent[key]);
+        return;
+      }
+      parent[key] = parsed;
+    });
+    container.appendChild(input);
+    return;
+  }
+
+  if (type === 'boolean') {
+    const label = document.createElement('label');
+    label.className = 'checkbox cfg-note';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = value;
+    input.addEventListener('change', () => { parent[key] = input.checked; });
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(' Enabled'));
+    container.appendChild(label);
+    return;
+  }
+
+  const input = document.createElement('input');
+  input.className = 'cfg-input';
+  input.type = 'text';
+  input.value = '';
+  input.placeholder = type === 'null' ? 'null' : 'undefined';
+  input.addEventListener('input', () => { parent[key] = input.value; });
+  container.appendChild(input);
+}
+
+function renderArrayItem(arr, index) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cfg-field nested';
+
+  const head = document.createElement('div');
+  head.className = 'cfg-field-head';
+
+  const label = document.createElement('div');
+  label.className = 'cfg-key';
+  label.textContent = 'Item ' + (index + 1);
+  head.appendChild(label);
+
+
+  const actions = document.createElement('div');
+  actions.className = 'cfg-actions';
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'button is-small is-danger is-outlined cfg-danger';
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', () => {
+    arr.splice(index, 1);
+    renderConfigForm();
+  });
+  actions.appendChild(removeBtn);
+  head.appendChild(actions);
+
+  const body = document.createElement('div');
+  const itemType = typeOfValue(arr[index]);
+  if (itemType === 'array') {
+    body.appendChild(renderArrayBody(arr[index]));
+  } else if (itemType === 'object') {
+    body.appendChild(renderObjectBody(arr[index], false));
+  } else {
+    renderPrimitiveBody(body, arr, index);
+  }
+
+  wrapper.appendChild(head);
+  wrapper.appendChild(body);
+  return wrapper;
+}
+
+function renderArrayBody(arr) {
+  const wrap = document.createElement('div');
+
+  const list = document.createElement('div');
+  list.className = 'cfg-array-list';
+  if (arr.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'cfg-note';
+    empty.textContent = 'No items in this array.';
+    list.appendChild(empty);
+  } else {
+    arr.forEach((_, index) => list.appendChild(renderArrayItem(arr, index)));
+  }
+
+  const controls = document.createElement('div');
+  controls.className = 'cfg-inline cfg-add-controls';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'button is-small is-primary is-outlined cfg-add-btn';
+  addBtn.textContent = 'Add item';
+  addBtn.addEventListener('click', () => {
+    arr.push('');
+    renderConfigForm();
+  });
+  controls.appendChild(addBtn);
+
+  wrap.appendChild(list);
+  wrap.appendChild(controls);
+  return wrap;
+}
+
+function renderObjectProperty(obj, key, isRootKey = false) {
+  const field = document.createElement('div');
+  field.className = 'cfg-field' + (isRootKey ? '' : ' nested');
+
+  const head = document.createElement('div');
+  head.className = 'cfg-field-head';
+
+  const keyLabel = document.createElement('div');
+  keyLabel.className = 'cfg-key';
+  keyLabel.textContent = key;
+  head.appendChild(keyLabel);
+
+
+  if (!isRootKey) {
+    const actions = document.createElement('div');
+    actions.className = 'cfg-actions';
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'button is-small is-danger is-outlined cfg-danger';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      delete obj[key];
+      renderConfigForm();
+    });
+    actions.appendChild(removeBtn);
+    head.appendChild(actions);
+  }
+
+  const body = document.createElement('div');
+  const valueType = typeOfValue(obj[key]);
+  if (valueType === 'array') {
+    body.appendChild(renderArrayBody(obj[key]));
+  } else if (valueType === 'object') {
+    body.appendChild(renderObjectBody(obj[key], false));
+  } else {
+    renderPrimitiveBody(body, obj, key);
+  }
+  if (showConfigHelp) {
+    const helpText = getHelpTextForKey(key);
+    if (helpText) {
+      const help = document.createElement('div');
+      help.className = 'cfg-help-text';
+      help.innerHTML = linkifyHelpText(helpText);
+      body.prepend(help);
+    }
+  }
+
+  field.appendChild(head);
+  field.appendChild(body);
+  return field;
+}
+
+function renderObjectBody(obj, isRoot) {
+  const wrap = document.createElement('div');
+
+  const list = document.createElement('div');
+  list.className = 'cfg-object-list';
+  const keys = Object.keys(obj);
+  if (keys.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'cfg-note';
+    empty.textContent = 'No properties in this object.';
+    list.appendChild(empty);
+  } else {
+    keys.forEach((key) => list.appendChild(renderObjectProperty(obj, key, isRoot)));
+  }
+  wrap.appendChild(list);
+
+  if (!isRoot) {
+    const addRow = document.createElement('div');
+    addRow.className = 'cfg-add-row';
+
+    const keyInput = document.createElement('input');
+    keyInput.className = 'cfg-input';
+    keyInput.type = 'text';
+    keyInput.placeholder = 'new key';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'button is-small is-primary is-outlined cfg-add-btn';
+    addBtn.textContent = 'Add field';
+    addBtn.addEventListener('click', () => {
+      const newKey = keyInput.value.trim();
+      if (!newKey) return;
+      if (Object.prototype.hasOwnProperty.call(obj, newKey)) {
+        toast('Field already exists: ' + newKey, 'error');
+        return;
+      }
+      obj[newKey] = '';
+      renderConfigForm();
+    });
+
+    addRow.appendChild(keyInput);
+    addRow.appendChild(addBtn);
+    wrap.appendChild(addRow);
+  }
+
+  return wrap;
+}
+
+const CONFIG_GROUP_ORDER = [
+  'Authentication',
+  'Trackers & Indexers',
+  'Clients',
+  'Paths',
+  'Automation',
+  'Matching Rules',
+  'Scheduling & Limits',
+  'Notifications',
+  'General',
+];
+
+function getConfigGroupName(key) {
+  const lower = String(key || '').toLowerCase();
+
+  if (
+    lower === 'apikey' ||
+    lower.includes('auth') ||
+    lower.includes('token') ||
+    lower.includes('password') ||
+    lower.includes('username') ||
+    lower.includes('api')
+  ) {
+    return 'Authentication';
+  }
+
+  if (lower.includes('tracker') || lower.includes('indexer')) {
+    return 'Trackers & Indexers';
+  }
+
+  if (
+    lower.includes('path') ||
+    lower.includes('dir') ||
+    lower.includes('folder') ||
+    lower.includes('watch') ||
+    lower.includes('link')
+  ) {
+    return 'Paths';
+  }
+
+  if (
+    lower.includes('torrent') ||
+    lower.includes('arr') ||
+    lower.includes('client')
+  ) {
+    return 'Clients';
+  }
+
+  if (
+    lower.includes('rss') ||
+    lower.includes('search') ||
+    lower.includes('inject') ||
+    lower.includes('action')
+  ) {
+    return 'Automation';
+  }
+
+  if (
+    lower.includes('match') ||
+    lower.includes('fuzzy') ||
+    lower.includes('strict') ||
+    lower.includes('episode') ||
+    lower.includes('season') ||
+    lower.includes('size') ||
+    lower.includes('score') ||
+    lower.includes('exclude')
+  ) {
+    return 'Matching Rules';
+  }
+
+  if (
+    lower.includes('schedule') ||
+    lower.includes('cron') ||
+    lower.includes('interval') ||
+    lower.includes('delay') ||
+    lower.includes('timeout') ||
+    lower.includes('retry') ||
+    lower.includes('concurr') ||
+    lower.includes('sleep')
+  ) {
+    return 'Scheduling & Limits';
+  }
+
+  if (
+    lower.includes('notify') ||
+    lower.includes('webhook') ||
+    lower.includes('discord') ||
+    lower.includes('telegram')
+  ) {
+    return 'Notifications';
+  }
+
+  return 'General';
+}
+
+function sortConfigGroupNames(a, b) {
+  const ai = CONFIG_GROUP_ORDER.indexOf(a);
+  const bi = CONFIG_GROUP_ORDER.indexOf(b);
+  const aOrder = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
+  const bOrder = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return a.localeCompare(b);
+}
+
+function renderConfigForm() {
+  const root = document.getElementById('config-editor');
+  root.innerHTML = '';
+
+  if (!configData || typeof configData !== 'object' || Array.isArray(configData)) {
+    const empty = document.createElement('div');
+    empty.className = 'cfg-note';
+    empty.textContent = 'No config loaded.';
+    root.appendChild(empty);
+    return;
+  }
+
+  const keys = Object.keys(configData);
+  if (keys.includes('apiKey')) {
+    keys.splice(keys.indexOf('apiKey'), 1);
+    keys.unshift('apiKey');
+  }
+
+  const groupedKeys = new Map();
+  keys.forEach((key) => {
+    const groupName = getConfigGroupName(key);
+    if (!groupedKeys.has(groupName)) groupedKeys.set(groupName, []);
+    groupedKeys.get(groupName).push(key);
+  });
+
+  Array.from(groupedKeys.keys())
+    .sort(sortConfigGroupNames)
+    .forEach((groupName) => {
+      const section = document.createElement('section');
+      section.className = 'cfg-group';
+
+      const title = document.createElement('h3');
+      title.className = 'cfg-group-title';
+      title.textContent = groupName;
+      section.appendChild(title);
+
+      const body = document.createElement('div');
+      body.className = 'cfg-group-body';
+      groupedKeys.get(groupName).forEach((key) => {
+        body.appendChild(renderObjectProperty(configData, key, true));
+      });
+
+      section.appendChild(body);
+      root.appendChild(section);
+    });
+}
+
+async function loadConfig() {
+  if (configLoaded) return;
+  const info = document.getElementById('config-info');
+  info.textContent = configVersionLabel;
+
+  try {
+    const r = await fetch('/api/config');
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    const templateContent = typeof data.templateContent === 'string' ? data.templateContent : '';
+    const templateOptionMap = parseConfigOptionHints(templateContent);
+    const contentOptionMap = parseConfigOptionHints(data.content);
+    configOptionMap = new Map(templateOptionMap);
+    contentOptionMap.forEach((value, key) => configOptionMap.set(key, value));
+
+    const templateHelpMap = parseConfigHelpHints(templateContent);
+    const contentHelpMap = parseConfigHelpHints(data.content);
+    configHelpMap = new Map(templateHelpMap);
+    contentHelpMap.forEach((value, key) => configHelpMap.set(key, value));
+
+    configData = parseConfigContent(data.content);
+    if (!Object.prototype.hasOwnProperty.call(configData, 'apiKey')) {
+      configData.apiKey = undefined;
+    }
+    renderConfigForm();
+
+    info.textContent = configVersionLabel;
+    configLoaded = true;
+  } catch (e) {
+    info.textContent = configVersionLabel;
+    toast('Failed to load config: ' + e.message, 'error');
+  }
+}
+
+document.getElementById('btn-reload-config').addEventListener('click', async () => {
+  configLoaded = false;
+  configData = null;
+  configOptionMap = new Map();
+  configHelpMap = new Map();
+  document.getElementById('config-editor').innerHTML = '<div class="cfg-note">Reloading...</div>';
+  setConfigInfoLabel();
+  await loadConfig();
+  toast('Config reloaded from disk', 'info');
+});
+
+document.getElementById('btn-save-config').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save-config');
+  const info = document.getElementById('config-info');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  info.textContent = configVersionLabel;
+
+  try {
+    if (!configData) throw new Error('Config is not loaded yet');
+    const content = buildConfigContent(configData);
+
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    info.textContent = configVersionLabel;
+    toast('Config saved successfully (' + data.backup + ')', 'success');
+  } catch (e) {
+    info.textContent = configVersionLabel;
+    toast('Save failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Config';
+  }
+});
+
+document.getElementById('toggle-config-help').addEventListener('change', (event) => {
+  showConfigHelp = event.target.checked;
+  saveUiState({ configShowHelp: showConfigHelp });
+  if (configLoaded && configData) renderConfigForm();
+});
+
+document.getElementById('panel-config').addEventListener('wheel', (event) => {
+  const panel = document.getElementById('panel-config');
+  if (!panel.classList.contains('active')) return;
+  const editor = document.getElementById('config-editor');
+  if (!editor) return;
+  if (editor.contains(event.target)) return;
+
+  const prevTop = editor.scrollTop;
+  editor.scrollTop += event.deltaY;
+  if (editor.scrollTop !== prevTop) event.preventDefault();
+}, { passive: false });
+
+loadVersionLabel();
+setActivePanel(uiState.activePanel || 'logs', false);
+
+
+document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+  const currentTheme = document.body.dataset.theme === 'light' ? 'light' : 'dark';
+  const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+  setTheme(nextTheme, true);
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  try {
+    await fetch('/logout', { method: 'POST' });
+  } catch (_) {}
+  window.location.href = '/login';
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "cross-seed-ui",
+  "version": "1.0.0",
+  "description": "CS-GUI: an add-on web UI for cross-seed",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": [
+    "cross-seed",
+    "cs-gui",
+    "web-ui",
+    "torrent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spinninghypercube/CS-GUI.git"
+  },
+  "bugs": {
+    "url": "https://github.com/spinninghypercube/CS-GUI/issues"
+  },
+  "homepage": "https://github.com/spinninghypercube/CS-GUI#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bulma": "^1.0.4",
+    "express": "^4.18.2"
+  }
+}
