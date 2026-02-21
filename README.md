@@ -4,7 +4,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
 
 `CS-GUI` is an **add-on web interface** for [`cross-seed`](https://github.com/cross-seed/cross-seed).
-It gives you a browser UI for logs, jobs, and config management while your normal `cross-seed` daemon keeps doing the actual work.
+It gives you a browser UI for logs, jobs, and config management while your `cross-seed` daemon keeps doing the actual work.
 
 ## Important
 
@@ -17,22 +17,6 @@ It gives you a browser UI for logs, jobs, and config management while your norma
 - GitHub: https://github.com/cross-seed/cross-seed
 - Website and docs: https://www.cross-seed.org
 
-## Table of Contents
-
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Dependencies Explained](#dependencies-explained)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Systemd Example](#systemd-example)
-- [Troubleshooting](#troubleshooting)
-- [Security Notes](#security-notes)
-- [Project Structure](#project-structure)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-
 ## Features
 
 - Live log stream with filters (`verbose`, `error`, `success`)
@@ -40,7 +24,7 @@ It gives you a browser UI for logs, jobs, and config management while your norma
 - Stable tracker highlighting (same tracker, same color)
 - Job triggers (`rss`, `search`, `inject`) from the UI
 - Structured editor for `cross-seed` config fields
-- Optional `Full help` toggle to show field explanations from config comments
+- Optional `Full help` toggle for config comments
 - Light and dark mode with persisted preferences
 - Persisted UI state for tab/filter/theme between reloads
 - Display of detected `cross-seed` runtime version in config view
@@ -50,7 +34,7 @@ It gives you a browser UI for logs, jobs, and config management while your norma
 - Node.js `>=18`
 - npm `>=9` (usually bundled with Node)
 - A reachable `cross-seed` instance with API key enabled
-- Access to your `cross-seed` config/log files (or correct env overrides)
+- Access to `cross-seed` config/log files (or correct env overrides)
 
 ## Installation
 
@@ -67,13 +51,14 @@ cd CS-GUI
 npm install
 ```
 
-### 3. Create local environment file
+### 3. Create secrets environment file (recommended)
 
 ```bash
-cp .env.example .env.local
+mkdir -p /root/cross-seed-ui-secrets
+cp .env.example /root/cross-seed-ui-secrets/.env.local
 ```
 
-### 4. Set required values in `.env.local`
+### 4. Set required values in `/root/cross-seed-ui-secrets/.env.local`
 
 At minimum set:
 
@@ -113,8 +98,10 @@ Open `http://<host>:3000`.
 
 The app loads env files in this order:
 
-1. `.env.local`
-2. `.env`
+1. `CROSS_SEED_UI_ENV_FILE` path (if set)
+2. `/root/cross-seed-ui-secrets/.env.local`
+3. `.env.local` (fallback for compatibility)
+4. `.env`
 
 OS-level environment variables override file values.
 
@@ -129,16 +116,17 @@ OS-level environment variables override file values.
 | `CROSS_SEED_UI_USERNAME` | `admin` | Username for UI login |
 | `CROSS_SEED_UI_PASSWORD` | API key fallback, then `admin` | Password for UI login |
 | `CROSS_SEED_UI_SESSION_SECRET` | API key fallback | Secret used to sign session cookie data |
+| `CROSS_SEED_UI_ENV_FILE` | none | Optional explicit env file path |
 | `CROSS_SEED_CONFIG_PATH` | `/root/.cross-seed/config.js` | Path to config file managed in UI |
 | `CROSS_SEED_LOGS_DIR` | `/root/.cross-seed/logs` | Directory containing `cross-seed` logs |
 
 ## Usage
 
 1. Log in to the UI.
-2. Open the **Logs** tab to inspect daemon output.
-3. Use filter buttons and line limits to isolate relevant events.
+2. Open **Logs** to inspect daemon output.
+3. Use filter buttons and line limits to isolate events.
 4. Open **Cross-seed Config** to edit settings through structured fields.
-5. Save config, then trigger relevant jobs (`rss`, `search`, `inject`) as needed.
+5. Save config, then trigger jobs (`rss`, `search`, `inject`) as needed.
 
 ## Systemd Example
 
@@ -161,46 +149,17 @@ Environment=NODE_ENV=production
 WantedBy=multi-user.target
 ```
 
-## Troubleshooting
-
-- Login works but API calls fail:
-  - Verify `CROSS_SEED_API_KEY`, host, and port values.
-- Filtered logs show less data than expected:
-  - Verify `CROSS_SEED_LOGS_DIR` points to actual `cross-seed` log files.
-- Config view is empty after startup:
-  - Confirm `CROSS_SEED_CONFIG_PATH` is valid and readable.
-- UI does not load:
-  - Check service logs and ensure the configured `PORT` is open.
-
 ## Security Notes
 
-- Never commit `.env.local`
-- Rotate credentials if they were ever exposed
+- Never commit `.env.local` or any file with real secrets
+- Keep secrets outside the repo when possible
 - Use a strong `CROSS_SEED_UI_SESSION_SECRET`
+- Rotate credentials if they were ever exposed
 - Prefer LAN-only exposure or protect with a reverse proxy
-
-## Project Structure
-
-```text
-.
-├── public/
-│   ├── index.html
-│   └── vendor/
-├── server.js
-├── .env.example
-├── package.json
-├── README.md
-└── .github/
-```
-
-## Roadmap
-
-- waiting for comments
 
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening PRs.
-
 For responsible disclosure, see [SECURITY.md](SECURITY.md).
 
 ## License

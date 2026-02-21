@@ -24,6 +24,8 @@ function loadEnvFile(filePath) {
   }
 }
 
+const EXTERNAL_ENV_LOCAL = process.env.CROSS_SEED_UI_ENV_FILE || '/root/cross-seed-ui-secrets/.env.local';
+loadEnvFile(EXTERNAL_ENV_LOCAL);
 loadEnvFile(path.join(__dirname, '.env.local'));
 loadEnvFile(path.join(__dirname, '.env'));
 
