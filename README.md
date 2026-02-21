@@ -195,9 +195,7 @@ WantedBy=multi-user.target
 
 ## Roadmap
 
-- Add optional automated backup/restore presets for config edits
-- Improve validation hints for option-constrained fields
-- Expand visual log analytics and error summaries
+- waiting for comments
 
 ## Contributing
 
