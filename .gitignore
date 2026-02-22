@@ -21,3 +21,5 @@ public/index.html.*
 !public/index.html
 .env.*
 !.env.example
+docker/*.env
+docker/*.local

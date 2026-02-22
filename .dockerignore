@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+.env
+.env.*
+*.log
+npm-debug.log*
+yarn-*.log*
+docker-compose*.yml
+public/*.bak*
+server.js.bak.*
+server.js.pre-*

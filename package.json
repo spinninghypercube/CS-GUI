@@ -5,13 +5,17 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js"
+    "check": "node --check server.js",
+    "doctor": "bash ./scripts/doctor.sh",
+    "install:guided": "bash ./scripts/install.sh"
   },
   "keywords": [
     "cross-seed",
     "cs-gui",
     "web-ui",
-    "torrent"
+    "torrent",
+    "proxmox",
+    "self-hosted"
   ],
   "license": "MIT",
   "repository": {

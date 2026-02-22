@@ -1,0 +1,16 @@
+[Unit]
+Description=CS-GUI (cross-seed Web UI)
+After=network.target cross-seed.service
+Wants=cross-seed.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/cross-seed-ui
+ExecStart=/usr/bin/node /root/cross-seed-ui/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+services:
+  cs-gui:
+    build: .
+    container_name: cs-gui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./docker/cs-gui.env
+    environment:
+      CROSS_SEED_CONFIG_PATH: /config/config.js
+      CROSS_SEED_LOGS_DIR: /logs
+    volumes:
+      - /root/.cross-seed/config.js:/config/config.js:rw
+      - /root/.cross-seed/logs:/logs:ro
+
+# Usage:
+# 1) mkdir -p docker && cp .env.example docker/cs-gui.env
+# 2) Edit docker/cs-gui.env with your real values
+# 3) docker compose up -d --build

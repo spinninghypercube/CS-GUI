@@ -330,6 +330,45 @@
   .cfg-add-row { margin-top: 8px; margin-left: 0; display: flex; gap: 8px; align-items: center; }
   .cfg-add-controls { margin-top: 8px; margin-left: 0; }
   .cfg-add-row .cfg-input { flex: 1; }
+  .setup-checklist {
+    margin: 0 0 10px;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--surface) 88%, var(--accent) 12%);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .setup-checklist[hidden] { display: none !important; }
+  .setup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .setup-title { font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+  .setup-status-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .setup-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    font-size: 11px;
+    color: var(--text);
+  }
+  .setup-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .setup-chip[data-state="up"] .setup-chip-dot,
+  .setup-chip[data-state="ok"] .setup-chip-dot { background: var(--success); }
+  .setup-chip[data-state="down"] .setup-chip-dot,
+  .setup-chip[data-state="error"] .setup-chip-dot { background: var(--error); }
+  .setup-chip[data-state="checking"] .setup-chip-dot,
+  .setup-chip[data-state="loading"] .setup-chip-dot { background: var(--accent); }
+  .setup-list { margin: 0; padding-left: 16px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+  .setup-list code {
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 4px;
+  }
+  .setup-detail { margin-top: 6px; color: var(--muted); font-size: 11px; word-break: break-word; }
 </style>
 </head>
 <body class="app-body">
@@ -369,6 +408,7 @@
 </nav>
 
 <div class="content">
+  <section class="setup-checklist" id="setup-checklist" hidden aria-live="polite"></section>
 
   <!-- LOGS -->
   <div class="panel active" id="panel-logs">
@@ -457,6 +497,10 @@ const BATCH_SIZE = 200; // max lines rendered per 100ms tick
 const UI_STATE_KEY = 'cross-seed-ui-state-v1';
 const uiState = loadUiState();
 let showConfigHelp = uiState.configShowHelp === true;
+const setupStatus = {
+  daemon: { state: 'checking', detail: '' },
+  config: { state: 'idle', detail: '' },
+};
 
 function loadUiState() {
   try {
@@ -581,6 +625,62 @@ function toast(msg, type = 'info', duration = 4000) {
   setTimeout(() => el.remove(), duration);
 }
 
+function setSetupStatus(kind, state, detail = '') {
+  if (!setupStatus[kind]) return;
+  setupStatus[kind].state = state;
+  setupStatus[kind].detail = detail || '';
+  renderSetupChecklist();
+}
+
+function renderSetupChecklist() {
+  const root = document.getElementById('setup-checklist');
+  if (!root) return;
+
+  const daemonDown = setupStatus.daemon.state === 'down' || setupStatus.daemon.state === 'error';
+  const configFailed = setupStatus.config.state === 'error';
+  const show = daemonDown || configFailed || setupStatus.daemon.state === 'checking';
+  root.hidden = !show;
+  if (!show) {
+    root.textContent = '';
+    return;
+  }
+
+  const daemonChipLabel = setupStatus.daemon.state === 'up'
+    ? 'Daemon API reachable'
+    : setupStatus.daemon.state === 'checking'
+      ? 'Daemon API checking'
+      : 'Daemon API unavailable';
+  const configChipLabel = setupStatus.config.state === 'ok'
+    ? 'Config file loaded'
+    : setupStatus.config.state === 'loading'
+      ? 'Config loading'
+      : setupStatus.config.state === 'error'
+        ? 'Config file unavailable'
+        : 'Config not checked yet';
+
+  const daemonDetail = setupStatus.daemon.detail ? `<div class="setup-detail">${escHtml(setupStatus.daemon.detail)}</div>` : '';
+  const configDetail = setupStatus.config.detail ? `<div class="setup-detail">${escHtml(setupStatus.config.detail)}</div>` : '';
+
+  root.innerHTML = `
+    <div class="setup-head">
+      <div class="setup-title">Setup Checklist</div>
+    </div>
+    <div class="setup-status-row">
+      <div class="setup-chip" data-state="${escHtml(setupStatus.daemon.state)}"><span class="setup-chip-dot"></span>${escHtml(daemonChipLabel)}</div>
+      <div class="setup-chip" data-state="${escHtml(setupStatus.config.state)}"><span class="setup-chip-dot"></span>${escHtml(configChipLabel)}</div>
+    </div>
+    <ol class="setup-list">
+      <li>Create a secrets file (recommended): <code>/root/cross-seed-ui-secrets/.env.local</code></li>
+      <li>Set <code>CROSS_SEED_API_KEY</code>, <code>CROSS_SEED_UI_PASSWORD</code>, and <code>CROSS_SEED_UI_SESSION_SECRET</code></li>
+      <li>Confirm <code>CROSS_SEED_HOST</code>/<code>CROSS_SEED_PORT</code> can reach your cross-seed API</li>
+      <li>Confirm <code>CROSS_SEED_CONFIG_PATH</code> and <code>CROSS_SEED_LOGS_DIR</code> exist and are readable</li>
+      <li>Run <code>bash scripts/doctor.sh</code> from the repo for guided checks</li>
+    </ol>
+    ${daemonDetail}
+    ${configDetail}
+  `;
+}
+
 // ── Daemon ping ────────────────────────────────────────
 async function pingDaemon() {
   const dot = document.getElementById('daemon-dot');
@@ -591,15 +691,19 @@ async function pingDaemon() {
     if (data.status === 'up') {
       dot.className = 'dot up';
       label.textContent = 'Daemon online';
+      setSetupStatus('daemon', 'up');
     } else {
       dot.className = 'dot down';
       label.textContent = 'Daemon offline';
+      setSetupStatus('daemon', 'down', data && data.error ? String(data.error) : 'Ping failed');
     }
   } catch {
     dot.className = 'dot down';
     label.textContent = 'Daemon offline';
+    setSetupStatus('daemon', 'down', 'Unable to reach /api/ping');
   }
 }
+renderSetupChecklist();
 pingDaemon();
 setInterval(pingDaemon, 15000);
 
@@ -1568,6 +1672,7 @@ async function loadConfig() {
   if (configLoaded) return;
   const info = document.getElementById('config-info');
   info.textContent = configVersionLabel;
+  setSetupStatus('config', 'loading');
 
   try {
     const r = await fetch('/api/config');
@@ -1593,8 +1698,10 @@ async function loadConfig() {
 
     info.textContent = configVersionLabel;
     configLoaded = true;
+    setSetupStatus('config', 'ok');
   } catch (e) {
     info.textContent = configVersionLabel;
+    setSetupStatus('config', 'error', e && e.message ? e.message : 'Failed to load config');
     toast('Failed to load config: ' + e.message, 'error');
   }
 }
@@ -1604,6 +1711,7 @@ document.getElementById('btn-reload-config').addEventListener('click', async () 
   configData = null;
   configOptionMap = new Map();
   configHelpMap = new Map();
+  setSetupStatus('config', 'loading');
   document.getElementById('config-editor').innerHTML = '<div class="cfg-note">Reloading...</div>';
   setConfigInfoLabel();
   await loadConfig();
