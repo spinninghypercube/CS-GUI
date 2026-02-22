@@ -2,9 +2,9 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_SECRETS_DIR="/root/cross-seed-ui-secrets"
-DEFAULT_ENV_FILE="$DEFAULT_SECRETS_DIR/.env.local"
-SERVICE_NAME="cross-seed-ui.service"
+DEFAULT_SECRETS_DIR="${CS_GUI_SECRETS_DIR:-/root/cross-seed-ui-secrets}"
+DEFAULT_ENV_FILE="${CS_GUI_ENV_FILE:-$DEFAULT_SECRETS_DIR/.env.local}"
+SERVICE_NAME="${CS_GUI_SERVICE_NAME:-cross-seed-ui.service}"
 SERVICE_TEMPLATE="$REPO_DIR/deploy/cross-seed-ui.service"
 SERVICE_PATH="/etc/systemd/system/$SERVICE_NAME"
 NODE_BIN="$(command -v node || true)"
@@ -14,6 +14,11 @@ SKIP_SERVICE="${SKIP_SERVICE:-0}"
 
 err() { printf 'ERROR: %s\n' "$*" >&2; }
 info() { printf '==> %s\n' "$*"; }
+read_env_key() {
+  local file="$1" key="$2" line
+  line=$(grep -E "^${key}=" "$file" 2>/dev/null | tail -n 1 || true)
+  printf '%s' "${line#*=}"
+}
 prompt_default() {
   local message="$1" default="$2" value
   if [ "$NON_INTERACTIVE" = "1" ]; then
@@ -73,16 +78,53 @@ else
   info "Using existing secrets env file at $DEFAULT_ENV_FILE"
 fi
 
-api_key="$(prompt_default 'cross-seed API key' 'replace_with_cross_seed_api_key')"
-ui_user="$(prompt_default 'UI username' 'admin')"
-ui_pass="$(prompt_default 'UI password' 'change_me')"
+existing_api_key="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_API_KEY)"
+existing_ui_user="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_UI_USERNAME)"
+existing_ui_pass="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_UI_PASSWORD)"
+existing_session_secret="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_UI_SESSION_SECRET)"
+existing_cs_host="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_HOST)"
+existing_cs_port="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_PORT)"
+existing_ui_port="$(read_env_key "$DEFAULT_ENV_FILE" PORT)"
+existing_config_path="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_CONFIG_PATH)"
+existing_logs_path="$(read_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_LOGS_DIR)"
+
+api_key="${CS_GUI_API_KEY:-}"
+if [ -z "$api_key" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_api_key" ]; then api_key="$existing_api_key"; else api_key="$(prompt_default 'cross-seed API key' 'replace_with_cross_seed_api_key')"; fi
+fi
+ui_user="${CS_GUI_UI_USERNAME:-}"
+if [ -z "$ui_user" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_ui_user" ]; then ui_user="$existing_ui_user"; else ui_user="$(prompt_default 'UI username' 'admin')"; fi
+fi
+ui_pass="${CS_GUI_UI_PASSWORD:-}"
+if [ -z "$ui_pass" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_ui_pass" ]; then ui_pass="$existing_ui_pass"; else ui_pass="$(prompt_default 'UI password' 'change_me')"; fi
+fi
 session_default="$(random_secret)"
-session_secret="$(prompt_default 'UI session secret' "$session_default")"
-cs_host="$(prompt_default 'cross-seed host' '127.0.0.1')"
-cs_port="$(prompt_default 'cross-seed port' '2468')"
-ui_port="$(prompt_default 'CS-GUI listen port' '3000')"
-config_path="$(prompt_default 'cross-seed config path' '/root/.cross-seed/config.js')"
-logs_path="$(prompt_default 'cross-seed logs dir' '/root/.cross-seed/logs')"
+session_secret="${CS_GUI_SESSION_SECRET:-}"
+if [ -z "$session_secret" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_session_secret" ]; then session_secret="$existing_session_secret"; else session_secret="$(prompt_default 'UI session secret' "$session_default")"; fi
+fi
+cs_host="${CS_GUI_CROSS_SEED_HOST:-}"
+if [ -z "$cs_host" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_cs_host" ]; then cs_host="$existing_cs_host"; else cs_host="$(prompt_default 'cross-seed host' '127.0.0.1')"; fi
+fi
+cs_port="${CS_GUI_CROSS_SEED_PORT:-}"
+if [ -z "$cs_port" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_cs_port" ]; then cs_port="$existing_cs_port"; else cs_port="$(prompt_default 'cross-seed port' '2468')"; fi
+fi
+ui_port="${CS_GUI_PORT:-}"
+if [ -z "$ui_port" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_ui_port" ]; then ui_port="$existing_ui_port"; else ui_port="$(prompt_default 'CS-GUI listen port' '3000')"; fi
+fi
+config_path="${CS_GUI_CONFIG_PATH:-}"
+if [ -z "$config_path" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_config_path" ]; then config_path="$existing_config_path"; else config_path="$(prompt_default 'cross-seed config path' '/root/.cross-seed/config.js')"; fi
+fi
+logs_path="${CS_GUI_LOGS_DIR:-}"
+if [ -z "$logs_path" ]; then
+  if [ "$NON_INTERACTIVE" = "1" ] && [ -n "$existing_logs_path" ]; then logs_path="$existing_logs_path"; else logs_path="$(prompt_default 'cross-seed logs dir' '/root/.cross-seed/logs')"; fi
+fi
 
 set_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_UI_ENV_FILE "$DEFAULT_ENV_FILE"
 set_env_key "$DEFAULT_ENV_FILE" CROSS_SEED_API_KEY "$api_key"

@@ -2,9 +2,20 @@
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
+[![CI](https://github.com/spinninghypercube/CS-GUI/actions/workflows/ci.yml/badge.svg)](https://github.com/spinninghypercube/CS-GUI/actions/workflows/ci.yml)
+![GitHub Release](https://img.shields.io/github/v/release/spinninghypercube/CS-GUI?sort=semver)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/spinninghypercube/CS-GUI/total)
 
 `CS-GUI` is an **add-on web interface** for [`cross-seed`](https://github.com/cross-seed/cross-seed).
 It gives you a browser UI for logs, jobs, and config management while your `cross-seed` daemon keeps doing the actual work.
+
+## Copy/Paste Install (Guided)
+
+```bash
+git clone https://github.com/spinninghypercube/CS-GUI.git
+cd CS-GUI
+sudo bash scripts/install.sh
+```
 
 ## Important (Read First)
 
