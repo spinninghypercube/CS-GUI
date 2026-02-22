@@ -34,9 +34,9 @@ const PORT = Number(process.env.PORT) || 3000;
 const CROSS_SEED_HOST = process.env.CROSS_SEED_HOST || '127.0.0.1';
 const CROSS_SEED_PORT = Number(process.env.CROSS_SEED_PORT) || 2468;
 const API_KEY = process.env.CROSS_SEED_API_KEY || '';
-const UI_USERNAME = process.env.CROSS_SEED_UI_USERNAME || 'admin';
-const UI_PASSWORD = process.env.CROSS_SEED_UI_PASSWORD || API_KEY || 'admin';
-const SESSION_SECRET = process.env.CROSS_SEED_UI_SESSION_SECRET || API_KEY || 'change-me-session-secret';
+let UI_USERNAME = process.env.CROSS_SEED_UI_USERNAME || 'admin';
+let UI_PASSWORD = process.env.CROSS_SEED_UI_PASSWORD || API_KEY || 'admin';
+let SESSION_SECRET = process.env.CROSS_SEED_UI_SESSION_SECRET || API_KEY || 'change-me-session-secret';
 const SESSION_COOKIE_NAME = 'cross_seed_ui_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const CONFIG_PATH = process.env.CROSS_SEED_CONFIG_PATH || '/root/.cross-seed/config.js';
@@ -50,6 +50,60 @@ const CROSS_SEED_PACKAGE_CANDIDATES = [
 ];
 const LOGS_DIR = process.env.CROSS_SEED_LOGS_DIR || '/root/.cross-seed/logs';
 const VALID_JOBS = ['cleanup', 'inject', 'rss', 'search', 'updateIndexerCaps'];
+
+function looksPlaceholderValue(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return !v || v === 'admin' || v === 'change_me' || v === 'change-me' ||
+    v === 'change_me_with_a_long_random_secret' || v === 'change-me-session-secret' ||
+    v === 'replace_with_cross_seed_api_key';
+}
+
+function requiresInitialCredentialSetup() {
+  const explicitUser = process.env.CROSS_SEED_UI_USERNAME;
+  const explicitPassword = process.env.CROSS_SEED_UI_PASSWORD;
+  const explicitSecret = process.env.CROSS_SEED_UI_SESSION_SECRET;
+  if (!explicitUser || !explicitUser.trim()) return true;
+  if (!explicitPassword || looksPlaceholderValue(explicitPassword)) return true;
+  if (!explicitSecret || looksPlaceholderValue(explicitSecret)) return true;
+  return false;
+}
+
+let initialSetupRequired = requiresInitialCredentialSetup();
+
+function randomHex(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function upsertEnvFileKey(filePath, key, value) {
+  const targetDir = path.dirname(filePath);
+  fs.mkdirSync(targetDir, { recursive: true });
+  let lines = [];
+  if (fs.existsSync(filePath)) {
+    lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  }
+  let replaced = false;
+  const nextLines = lines.map((line) => {
+    if (line.startsWith(key + '=')) {
+      replaced = true;
+      return `${key}=${value}`;
+    }
+    return line;
+  });
+  if (!replaced) nextLines.push(`${key}=${value}`);
+  const content = nextLines.join('\n').replace(/\n*$/, '\n');
+  fs.writeFileSync(filePath, content, 'utf8');
+  try { fs.chmodSync(filePath, 0o600); } catch (_) {}
+}
+
+function persistUiCredentials(username, password, sessionSecret) {
+  const targetEnvFile = process.env.CROSS_SEED_UI_ENV_FILE || EXTERNAL_ENV_LOCAL;
+  upsertEnvFileKey(targetEnvFile, 'CROSS_SEED_UI_USERNAME', username);
+  upsertEnvFileKey(targetEnvFile, 'CROSS_SEED_UI_PASSWORD', password);
+  upsertEnvFileKey(targetEnvFile, 'CROSS_SEED_UI_SESSION_SECRET', sessionSecret);
+  if (!process.env.CROSS_SEED_UI_ENV_FILE && targetEnvFile === EXTERNAL_ENV_LOCAL) {
+    upsertEnvFileKey(targetEnvFile, 'CROSS_SEED_UI_ENV_FILE', targetEnvFile);
+  }
+}
 
 if (!process.env.CROSS_SEED_API_KEY) {
   console.warn('[cross-seed-ui] CROSS_SEED_API_KEY is not set; API requests to cross-seed may fail.');
@@ -318,7 +372,85 @@ function renderLoginPage(errorMessage = '', username = '') {
 </html>`;
 }
 
+function renderSetupPage(errorMessage = '', username = '') {
+  const error = errorMessage
+    ? `<div class="error" role="alert">${escapeHtml(errorMessage)}</div>`
+    : '';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CS-GUI first-time setup</title>
+  <style>
+    :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --error:#f85149; --success:#3fb950; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; display:flex; flex-direction:column; }
+    header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 20px; display:flex; align-items:center; gap:10px; height:52px; }
+    .logo { font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px; }
+    .logo-icon { color:var(--success); font-size:18px; }
+    .version-tag { margin-left:auto; font-size:11px; color:var(--muted); background:#21262d; border:1px solid var(--border); padding:2px 8px; border-radius:12px; }
+    main { flex:1; display:grid; place-items:center; padding:20px; }
+    .card { width:min(460px,100%); background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+    h1 { margin:0 0 8px; font-size:22px; }
+    p { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.4; }
+    label { display:block; margin:12px 0 6px; font-size:13px; color:var(--muted); }
+    input { width:100%; border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:8px; padding:10px 12px; font-size:14px; outline:none; }
+    input:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(88,166,255,.2); }
+    button { width:100%; margin-top:16px; border:0; border-radius:8px; padding:10px 12px; font-size:14px; font-weight:600; background:var(--accent); color:#fff; cursor:pointer; }
+    .error { margin:10px 0 0; color:var(--error); font-size:13px; }
+    .tip { margin-top:12px; font-size:12px; color:var(--muted); }
+    .tip code { color:var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span class="logo-icon">⟳</span>CS-GUI</div>
+    <span class="version-tag">setup</span>
+  </header>
+  <main>
+    <form id="setup-form" class="card" action="/setup" method="post" autocomplete="on">
+      <h1>First-time setup</h1>
+      <p>Create the UI login credentials. This is required before anyone can use the web interface.</p>
+      ${error}
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" value="${escapeHtml(username)}" required />
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+      <label for="passwordConfirm">Confirm password</label>
+      <input id="passwordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" required />
+      <button type="submit">Save credentials</button>
+      <div class="tip">Credentials are stored in <code>${escapeHtml(process.env.CROSS_SEED_UI_ENV_FILE || EXTERNAL_ENV_LOCAL)}</code>.</div>
+    </form>
+  </main>
+</body>
+</html>`;
+}
+
+function applyInitialCredentialSetup(username, password) {
+  const nextUsername = String(username || '').trim();
+  const nextPassword = String(password || '');
+  const nextSessionSecret = randomHex(32);
+  persistUiCredentials(nextUsername, nextPassword, nextSessionSecret);
+  process.env.CROSS_SEED_UI_USERNAME = nextUsername;
+  process.env.CROSS_SEED_UI_PASSWORD = nextPassword;
+  process.env.CROSS_SEED_UI_SESSION_SECRET = nextSessionSecret;
+  UI_USERNAME = nextUsername;
+  UI_PASSWORD = nextPassword;
+  SESSION_SECRET = nextSessionSecret;
+  initialSetupRequired = false;
+}
+
 function requireLogin(req, res, next) {
+  if (initialSetupRequired) {
+    if (req.path === '/setup') return next();
+    if (req.path.startsWith('/api/')) {
+      return res.status(503).json({ error: 'Initial setup required', setupRequired: true });
+    }
+    return res.redirect('/setup');
+  }
+
   if (req.path === '/login') return next();
 
   const cookies = parseCookies(req);
@@ -335,7 +467,52 @@ function requireLogin(req, res, next) {
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: '2mb' }));
 
+app.get('/setup', (req, res) => {
+  const token = parseCookies(req)[SESSION_COOKIE_NAME];
+  if (!initialSetupRequired && verifySessionToken(token)) return res.redirect('/');
+  if (!initialSetupRequired) return res.redirect('/login');
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).send(renderSetupPage());
+});
+
+app.post('/setup', (req, res) => {
+  if (!initialSetupRequired) return res.redirect(303, '/login');
+
+  const username = String(req.body?.username ?? '').trim();
+  const password = String(req.body?.password ?? '');
+  const passwordConfirm = String(req.body?.passwordConfirm ?? '');
+
+  if (!username) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).send(renderSetupPage('Username is required.', username));
+  }
+  if (username.length > 64) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).send(renderSetupPage('Username is too long (max 64 characters).', username));
+  }
+  if (password.length < 8) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).send(renderSetupPage('Password must be at least 8 characters.', username));
+  }
+  if (password !== passwordConfirm) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).send(renderSetupPage('Passwords do not match.', username));
+  }
+
+  try {
+    applyInitialCredentialSetup(username, password);
+  } catch (e) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(500).send(renderSetupPage('Failed to save credentials: ' + e.message, username));
+  }
+
+  const token = createSessionToken(UI_USERNAME);
+  setSessionCookie(res, token);
+  return res.redirect(303, '/');
+});
+
 app.get('/login', (req, res) => {
+  if (initialSetupRequired) return res.redirect('/setup');
   const token = parseCookies(req)[SESSION_COOKIE_NAME];
   if (verifySessionToken(token)) return res.redirect('/');
   res.setHeader('Cache-Control', 'no-store');
@@ -343,6 +520,7 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
+  if (initialSetupRequired) return res.redirect(303, '/setup');
   const username = req.body?.username ?? req.body?.email ?? req.body?.login ?? '';
   const password = req.body?.password ?? '';
 
@@ -658,5 +836,9 @@ app.post('/api/restart', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`cross-seed UI running → http://0.0.0.0:${PORT}`);
-  console.log(`Form login enabled (user: ${UI_USERNAME})`);
+  if (initialSetupRequired) {
+    console.log('Initial setup required → open /setup to create UI credentials');
+  } else {
+    console.log(`Form login enabled (user: ${UI_USERNAME})`);
+  }
 });
