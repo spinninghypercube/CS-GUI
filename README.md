@@ -197,6 +197,18 @@ OS-level environment variables override file values.
 | `CROSS_SEED_CONFIG_PATH` | `/root/.cross-seed/config.js` | Path to config file managed in UI |
 | `CROSS_SEED_LOGS_DIR` | `/root/.cross-seed/logs` | Directory containing `cross-seed` logs |
 
+`CROSS_SEED_HOST` is the address CS-GUI uses to reach the `cross-seed` API. It does not change the `cross-seed` daemon bind address in `config.js`.
+
+### Recommended cross-seed daemon bind (same-host installs)
+
+If CS-GUI and `cross-seed` run on the same machine/container, set the `cross-seed` daemon `host` in its config (usually `/root/.cross-seed/config.js`) to:
+
+```js
+host: "127.0.0.1",
+```
+
+This prevents the raw `cross-seed` API port (default `2468`) from being reachable by other LAN devices while CS-GUI still works normally through localhost.
+
 ## Running as a Service (systemd)
 
 - Template unit file: `deploy/cross-seed-ui.service`
@@ -258,6 +270,8 @@ This project is early-stage and optimized for practical local/self-hosted use fi
 - Use a strong `CROSS_SEED_UI_SESSION_SECRET`
 - Rotate credentials if they were ever exposed
 - Prefer LAN-only exposure or protect with a reverse proxy
+- For same-host installs, prefer `cross-seed` config `host: "127.0.0.1"` instead of `0.0.0.0`
+- If using a reverse proxy (Caddy / Nginx Proxy Manager), proxy CS-GUI (`:3000`) and avoid exposing the raw `cross-seed` API (`:2468`) unless required
 
 ## Project Health / Automation
 

@@ -89,7 +89,17 @@ else
   note "Target cross-seed API: http://$CS_HOST:$CS_PORT"
   note "CS-GUI listen port: $UI_PORT"
 
-  [ -f "$CFG_PATH" ] && pass "Config file exists: $CFG_PATH" || fail "Config file missing: $CFG_PATH"
+  if [ -f "$CFG_PATH" ]; then
+    pass "Config file exists: $CFG_PATH"
+    if [ "$CS_HOST" = "127.0.0.1" ] || [ "$CS_HOST" = "localhost" ]; then
+      if grep -Eq '^[[:space:]]*host[[:space:]]*:[[:space:]]*.*0\.0\.0\.0' "$CFG_PATH"; then
+        warn "cross-seed config appears to bind host 0.0.0.0 while CS-GUI targets localhost; set cross-seed config host to 127.0.0.1 unless you intentionally need remote API access"
+      fi
+    fi
+  else
+    fail "Config file missing: $CFG_PATH"
+  fi
+
   [ -d "$LOGS_DIR" ] && pass "Logs directory exists: $LOGS_DIR" || fail "Logs directory missing: $LOGS_DIR"
 
   if command -v curl >/dev/null 2>&1 && ! looks_placeholder "$API_KEY"; then
