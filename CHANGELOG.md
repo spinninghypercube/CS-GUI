@@ -13,6 +13,12 @@ The format is inspired by Keep a Changelog and Semantic Versioning.
 - CI workflow and Dependabot config
 - Additional docs for common setups, backup/restore, and limitations
 
+## [0.1.2] - 2026-03-01
+
+### Fixed
+
+- Logs page now opens at the newest entries after refresh or stream reload even when auto-scroll is off (one-time initial catch-up only).
+
 ## [0.1.0] - 2026-02-22
 
 ### Added

@@ -330,6 +330,36 @@
   .cfg-add-row { margin-top: 8px; margin-left: 0; display: flex; gap: 8px; align-items: center; }
   .cfg-add-controls { margin-top: 8px; margin-left: 0; }
   .cfg-add-row .cfg-input { flex: 1; }
+  .cfg-age-window {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface2);
+    padding: 10px;
+  }
+  .cfg-age-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 8px;
+  }
+  .cfg-age-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .cfg-age-row:last-child { margin-bottom: 0; }
+  .cfg-age-label { font-size: 12px; color: var(--muted); }
+  .cfg-age-input-wrap { display: flex; gap: 8px; align-items: center; width: 100%; }
+  .cfg-age-input { width: 100%; min-width: 120px; }
+  .cfg-age-unit { width: 100%; min-width: 120px; }
+  .cfg-age-status {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .cfg-age-status.invalid { color: var(--error); }
   .setup-checklist {
     margin: 0 0 10px;
     border: 1px solid var(--border);
@@ -492,8 +522,12 @@ let logEventSource = null;
 let lineCount = 0;
 let pendingLines = [];
 let streamGen = 0; // incremented on every new stream; prevents stale ready events
+let initialBottomSnapActive = false;
+let initialBottomSnapReady = false;
+let initialBottomSnapDeadline = 0;
 const MAX_LINES = 1000;
 const BATCH_SIZE = 200; // max lines rendered per 100ms tick
+const INITIAL_BOTTOM_SNAP_MAX_MS = 8000;
 const UI_STATE_KEY = 'cross-seed-ui-state-v1';
 const uiState = loadUiState();
 let showConfigHelp = uiState.configShowHelp === true;
@@ -572,7 +606,11 @@ restoreUiStateToControls();
 
 // Flush pending lines to DOM every 100ms in controlled batches
 setInterval(() => {
-  if (pendingLines.length === 0) return;
+  if (pendingLines.length === 0) {
+    if (initialBottomSnapActive && initialBottomSnapReady) initialBottomSnapActive = false;
+    if (initialBottomSnapActive && Date.now() > initialBottomSnapDeadline) initialBottomSnapActive = false;
+    return;
+  }
   // If there's more than we'll ever show, drop the oldest to avoid processing thousands of lines
   if (pendingLines.length > MAX_LINES) pendingLines = pendingLines.slice(-MAX_LINES);
   const batch = pendingLines.splice(0, BATCH_SIZE);
@@ -584,7 +622,13 @@ setInterval(() => {
   viewer.appendChild(fragment);
   while (viewer.children.length > MAX_LINES) viewer.removeChild(viewer.firstChild);
   lineCount = viewer.children.length;
-  if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
+  if (autoScroll || initialBottomSnapActive) viewer.scrollTop = viewer.scrollHeight;
+  if (initialBottomSnapActive && initialBottomSnapReady && pendingLines.length === 0) {
+    initialBottomSnapActive = false;
+  }
+  if (initialBottomSnapActive && Date.now() > initialBottomSnapDeadline) {
+    initialBottomSnapActive = false;
+  }
 }, 100);
 
 const SUCCESS_PATTERN = /\binfo:.*\bMATCH(_PARTIAL)?\b.*- injected/;
@@ -605,6 +649,12 @@ function setActivePanel(panelName, persist = true) {
 
   const panelEl = document.getElementById('panel-' + targetPanel);
   if (panelEl) panelEl.classList.add('active');
+  if (targetPanel === 'logs' && initialBottomSnapActive) {
+    requestAnimationFrame(() => {
+      const viewer = document.getElementById('log-viewer');
+      if (viewer) viewer.scrollTop = viewer.scrollHeight;
+    });
+  }
   if (targetPanel === 'config') loadConfig();
   if (persist) saveUiState({ activePanel: targetPanel });
 }
@@ -708,6 +758,13 @@ pingDaemon();
 setInterval(pingDaemon, 15000);
 
 // ── Log coloring ───────────────────────────────────────
+function formatLogTimestamp(ts) {
+  const match = String(ts || '').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.\d+)?$/);
+  if (!match) return String(ts || '');
+  const [, year, month, day, hour, minute, second] = match;
+  return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
+}
+
 function colorLine(raw) {
   const m = raw.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(verbose|info|error|warn):\s+(\[[^\]]+\])\s*(.*)$/);
   if (!m) {
@@ -718,10 +775,11 @@ function colorLine(raw) {
     return el;
   }
   const [, ts, level, tag, msg] = m;
+  const displayTs = formatLogTimestamp(ts);
   const el = document.createElement('div');
   el.className = 'log-line';
   el.innerHTML =
-    `<span class="ts">${ts}</span> ` +
+    `<span class="ts">${displayTs}</span> ` +
     `<span class="level-${level}">${level}:</span> ` +
     `<span class="tag">${escHtml(tag)}</span> ` +
     `<span class="msg-${level}">${highlightTrackers(msg)}</span>`;
@@ -817,6 +875,9 @@ function startLogStream(type) {
   viewer.innerHTML = '<div class="log-status">Retrieving...</div>';
   lineCount = 0;
   pendingLines = [];
+  initialBottomSnapActive = true;
+  initialBottomSnapReady = false;
+  initialBottomSnapDeadline = Date.now() + INITIAL_BOTTOM_SNAP_MAX_MS;
   const myGen = ++streamGen; // capture generation for this stream
 
   const lines = document.getElementById('select-lines').value;
@@ -834,6 +895,7 @@ function startLogStream(type) {
   };
   logEventSource.addEventListener('ready', (e) => {
     if (streamGen !== myGen) return; // stale stream, ignore
+    initialBottomSnapReady = true;
     const { count } = JSON.parse(e.data);
     if (count === 0 && pendingLines.length === 0 && lineCount === 0) {
       viewer.innerHTML = '<div class="log-status">No results for this filter.</div>';
@@ -842,6 +904,7 @@ function startLogStream(type) {
       const status = viewer.querySelector('.log-status');
       if (status) status.textContent = `Loading ${count} lines…`;
     }
+    if (pendingLines.length === 0) initialBottomSnapActive = false;
   });
   logEventSource.onerror = () => {
     if (streamGen !== myGen) return;
@@ -911,6 +974,9 @@ document.getElementById('log-viewer').addEventListener('scroll', (e) => {
     autoScroll = false;
     document.getElementById('auto-scroll').checked = false;
     saveUiState({ autoScroll });
+  }
+  if (!atBottom && !autoScroll && initialBottomSnapActive) {
+    initialBottomSnapActive = false;
   }
 });
 
@@ -1018,6 +1084,33 @@ const CONFIG_OPTION_FALLBACKS = Object.freeze({
   linkType: ['symlink', 'hardlink', 'reflink'],
   matchMode: ['strict', 'flexible', 'partial'],
 });
+const AGE_WINDOW_KEY_RECENT = 'excludeRecentSearch';
+const AGE_WINDOW_KEY_OLDER = 'excludeOlder';
+const AGE_WINDOW_PAIR_KEY = '__ageWindow__';
+const AGE_WINDOW_FACTOR_MIN = 2;
+const AGE_WINDOW_FACTOR_MAX = 5;
+const AGE_WINDOW_FACTOR_STEP = 0.5;
+const AGE_WINDOW_RATIO_EPSILON = 1e-9;
+const AGE_WINDOW_UNITS = Object.freeze(['minutes', 'hours', 'days', 'weeks']);
+const AGE_WINDOW_UNIT_TO_MS = Object.freeze({
+  minutes: 60 * 1000,
+  hours: 60 * 60 * 1000,
+  days: 24 * 60 * 60 * 1000,
+  weeks: 7 * 24 * 60 * 60 * 1000,
+});
+const CONFIG_LAYOUT = Object.freeze([
+  { title: 'Authentication & Indexers', keys: ['apiKey', 'torznab', 'sonarr', 'radarr'] },
+  { title: 'Torrent Client Connection', keys: ['torrentClients', 'useClientTorrents', 'torrentDir', 'action', 'duplicateCategories'] },
+  { title: 'Data Sources', keys: ['dataDirs', 'maxDataDepth', 'includeSingleEpisodes', 'includeNonVideos'] },
+  { title: 'Linking & Output', keys: ['linkDirs', 'linkType', 'flatLinking', 'linkCategory', 'outputDir'] },
+  { title: 'Matching Behavior', keys: ['matchMode', 'fuzzySizeThreshold', 'seasonFromEpisodes'] },
+  { title: 'Search Filtering', keys: [AGE_WINDOW_PAIR_KEY, 'searchLimit', 'blockList'] },
+  { title: 'Automation & Scheduling', keys: ['rssCadence', 'searchCadence', 'delay'] },
+  { title: 'Timeouts & Resume', keys: ['searchTimeout', 'snatchTimeout', 'skipRecheck', 'autoResumeMaxDownload', 'ignoreNonRelevantFilesToResume'] },
+  { title: 'Notifications', keys: ['notificationWebhookUrls'] },
+  { title: 'Server', keys: ['host', 'port'] },
+]);
+let ageWindowValidation = { ok: true, errors: [], ratio: null };
 
 function typeOfValue(value) {
   if (value === null) return 'null';
@@ -1232,6 +1325,134 @@ function valueToOptionToken(value) {
 
 function formatOptionLabel(token) {
   return token;
+}
+
+function clampAgeFactor(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return AGE_WINDOW_FACTOR_MIN;
+  return Math.min(AGE_WINDOW_FACTOR_MAX, Math.max(AGE_WINDOW_FACTOR_MIN, numeric));
+}
+
+function formatDecimal(value, digits = 2) {
+  if (!Number.isFinite(value)) return '0';
+  return String(Number(value.toFixed(digits)));
+}
+
+function formatDurationForConfig(value, unit) {
+  const unitKey = AGE_WINDOW_UNIT_TO_MS[unit] ? unit : 'days';
+  const normalized = Number(value);
+  const safe = Number.isFinite(normalized) ? Math.max(0, normalized) : 0;
+  const amount = formatDecimal(safe, 2);
+  const singular = unitKey.endsWith('s') ? unitKey.slice(0, -1) : unitKey;
+  const label = Number(amount) === 1 ? singular : unitKey;
+  return amount + ' ' + label;
+}
+
+function parseDurationToMs(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (value === null || value === undefined) return null;
+
+  const text = String(value).trim().toLowerCase();
+  if (!text || text === 'null' || text === 'undefined') return null;
+  const match = text.match(/^(-?\d+(?:\.\d+)?)\s*([a-z]+)?$/i);
+  if (!match) return null;
+
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount)) return null;
+
+  const unit = (match[2] || 'ms').toLowerCase();
+  const aliases = {
+    ms: 1,
+    msec: 1,
+    msecs: 1,
+    millisecond: 1,
+    milliseconds: 1,
+    s: 1000,
+    sec: 1000,
+    secs: 1000,
+    second: 1000,
+    seconds: 1000,
+    m: 60 * 1000,
+    min: 60 * 1000,
+    mins: 60 * 1000,
+    minute: 60 * 1000,
+    minutes: 60 * 1000,
+    h: 60 * 60 * 1000,
+    hr: 60 * 60 * 1000,
+    hrs: 60 * 60 * 1000,
+    hour: 60 * 60 * 1000,
+    hours: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    day: 24 * 60 * 60 * 1000,
+    days: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    weeks: 7 * 24 * 60 * 60 * 1000,
+  };
+  const mult = aliases[unit];
+  if (!mult) return null;
+  return amount * mult;
+}
+
+function pickDurationUnit(ms, fallbackUnit = 'days') {
+  if (AGE_WINDOW_UNIT_TO_MS[fallbackUnit]) return fallbackUnit;
+  if (!Number.isFinite(ms) || ms <= 0) return 'days';
+  if (ms % AGE_WINDOW_UNIT_TO_MS.weeks === 0) return 'weeks';
+  if (ms % AGE_WINDOW_UNIT_TO_MS.days === 0) return 'days';
+  if (ms % AGE_WINDOW_UNIT_TO_MS.hours === 0) return 'hours';
+  return 'minutes';
+}
+
+function splitDuration(ms, preferredUnit) {
+  const unit = pickDurationUnit(ms, preferredUnit);
+  const unitMs = AGE_WINDOW_UNIT_TO_MS[unit] || AGE_WINDOW_UNIT_TO_MS.days;
+  return {
+    unit,
+    value: ms / unitMs,
+  };
+}
+
+function validateAgeWindow(configObj) {
+  const hasRecent = Object.prototype.hasOwnProperty.call(configObj, AGE_WINDOW_KEY_RECENT);
+  const hasOlder = Object.prototype.hasOwnProperty.call(configObj, AGE_WINDOW_KEY_OLDER);
+  const result = { ok: true, errors: [], ratio: null, recentMs: null, olderMs: null };
+
+  if (!hasRecent && !hasOlder) return result;
+  if (!hasRecent || !hasOlder) {
+    result.ok = false;
+    result.errors.push('Both excludeRecentSearch and excludeOlder must be present.');
+    return result;
+  }
+
+  const recentMs = parseDurationToMs(configObj[AGE_WINDOW_KEY_RECENT]);
+  const olderMs = parseDurationToMs(configObj[AGE_WINDOW_KEY_OLDER]);
+  result.recentMs = recentMs;
+  result.olderMs = olderMs;
+
+  if (!Number.isFinite(recentMs) || recentMs <= 0) {
+    result.errors.push('excludeRecentSearch must be a positive duration.');
+  }
+  if (!Number.isFinite(olderMs) || olderMs <= 0) {
+    result.errors.push('excludeOlder must be a positive duration.');
+  }
+  if (result.errors.length > 0) {
+    result.ok = false;
+    return result;
+  }
+
+  const ratio = olderMs / recentMs;
+  result.ratio = ratio;
+  if (
+    !Number.isFinite(ratio) ||
+    ratio < (AGE_WINDOW_FACTOR_MIN - AGE_WINDOW_RATIO_EPSILON) ||
+    ratio > (AGE_WINDOW_FACTOR_MAX + AGE_WINDOW_RATIO_EPSILON)
+  ) {
+    result.ok = false;
+    result.errors.push(`excludeOlder must be between ${AGE_WINDOW_FACTOR_MIN}x and ${AGE_WINDOW_FACTOR_MAX}x excludeRecentSearch (current ${formatDecimal(ratio, 1)}x).`);
+  }
+  return result;
 }
 
 function formatJsKey(key) {
@@ -1517,108 +1738,231 @@ function renderObjectBody(obj, isRoot) {
   return wrap;
 }
 
-const CONFIG_GROUP_ORDER = [
-  'Authentication',
-  'Trackers & Indexers',
-  'Clients',
-  'Paths',
-  'Automation',
-  'Matching Rules',
-  'Scheduling & Limits',
-  'Notifications',
-  'General',
-];
+function renderExcludeAgeWindow(configObj) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cfg-age-window';
 
-function getConfigGroupName(key) {
-  const lower = String(key || '').toLowerCase();
+  const title = document.createElement('div');
+  title.className = 'cfg-age-title';
+  title.textContent = 'Search Age Window';
+  wrapper.appendChild(title);
 
-  if (
-    lower === 'apikey' ||
-    lower.includes('auth') ||
-    lower.includes('token') ||
-    lower.includes('password') ||
-    lower.includes('username') ||
-    lower.includes('api')
-  ) {
-    return 'Authentication';
+  const recentParsed = parseDurationToMs(configObj[AGE_WINDOW_KEY_RECENT]);
+  const olderParsed = parseDurationToMs(configObj[AGE_WINDOW_KEY_OLDER]);
+  let recentMs = Number.isFinite(recentParsed) && recentParsed > 0 ? recentParsed : 3 * AGE_WINDOW_UNIT_TO_MS.days;
+  let olderMs = Number.isFinite(olderParsed) && olderParsed > 0 ? olderParsed : 2 * AGE_WINDOW_UNIT_TO_MS.weeks;
+  let factor = clampAgeFactor(olderMs / recentMs);
+  let sharedUnit = splitDuration(
+    Number.isFinite(recentParsed) && recentParsed > 0
+      ? recentParsed
+      : Number.isFinite(olderParsed) && olderParsed > 0
+        ? olderParsed
+        : AGE_WINDOW_UNIT_TO_MS.days,
+    'days',
+  ).unit;
+
+  function makeDurationRow(labelText) {
+    const row = document.createElement('div');
+    row.className = 'cfg-age-row';
+
+    const label = document.createElement('label');
+    label.className = 'cfg-age-label';
+    label.textContent = labelText;
+    row.appendChild(label);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'cfg-age-input-wrap';
+    row.appendChild(wrap);
+
+    return { row, wrap };
   }
 
-  if (lower.includes('tracker') || lower.includes('indexer')) {
-    return 'Trackers & Indexers';
+  const unitRow = makeDurationRow('Time unit');
+  const sharedUnitSelect = document.createElement('select');
+  sharedUnitSelect.className = 'cfg-input cfg-age-unit';
+  AGE_WINDOW_UNITS.forEach((unit) => {
+    const option = document.createElement('option');
+    option.value = unit;
+    option.textContent = unit;
+    sharedUnitSelect.appendChild(option);
+  });
+  unitRow.wrap.appendChild(sharedUnitSelect);
+  wrapper.appendChild(unitRow.row);
+
+  const factorRow = makeDurationRow('Factor');
+  const factorSelect = document.createElement('select');
+  factorSelect.className = 'cfg-input cfg-age-unit';
+  for (let value = AGE_WINDOW_FACTOR_MIN; value <= AGE_WINDOW_FACTOR_MAX + AGE_WINDOW_RATIO_EPSILON; value += AGE_WINDOW_FACTOR_STEP) {
+    const option = document.createElement('option');
+    const token = formatDecimal(value, 1);
+    option.value = token;
+    option.textContent = token + 'x';
+    factorSelect.appendChild(option);
+  }
+  factorRow.wrap.appendChild(factorSelect);
+  wrapper.appendChild(factorRow.row);
+
+  const recentRow = makeDurationRow('Re-search cooldown');
+  const recentInput = document.createElement('input');
+  recentInput.className = 'cfg-input cfg-age-input';
+  recentInput.type = 'number';
+  recentInput.min = '0.01';
+  recentInput.step = '0.01';
+  recentRow.wrap.appendChild(recentInput);
+  wrapper.appendChild(recentRow.row);
+
+  const olderRow = makeDurationRow('Stop searching after');
+  const olderInput = document.createElement('input');
+  olderInput.className = 'cfg-input cfg-age-input';
+  olderInput.type = 'number';
+  olderInput.min = '0.01';
+  olderInput.step = '0.01';
+  olderRow.wrap.appendChild(olderInput);
+  wrapper.appendChild(olderRow.row);
+
+  const status = document.createElement('div');
+  status.className = 'cfg-age-status';
+  wrapper.appendChild(status);
+
+  if (showConfigHelp) {
+    const combinedHelp = [getHelpTextForKey(AGE_WINDOW_KEY_RECENT), getHelpTextForKey(AGE_WINDOW_KEY_OLDER)]
+      .filter((text) => text && text.trim())
+      .join('\n\n');
+    if (combinedHelp) {
+      const help = document.createElement('div');
+      help.className = 'cfg-help-text';
+      help.innerHTML = linkifyHelpText(combinedHelp);
+      wrapper.appendChild(help);
+    }
   }
 
-  if (
-    lower.includes('path') ||
-    lower.includes('dir') ||
-    lower.includes('folder') ||
-    lower.includes('watch') ||
-    lower.includes('link')
-  ) {
-    return 'Paths';
+  function syncInputsFromState() {
+    const unitMs = AGE_WINDOW_UNIT_TO_MS[sharedUnit];
+    const recentValue = recentMs / unitMs;
+    const olderValue = olderMs / unitMs;
+    recentInput.value = formatDecimal(recentValue, 2);
+    olderInput.value = formatDecimal(olderValue, 2);
+    sharedUnitSelect.value = sharedUnit;
+    factorSelect.value = formatDecimal(factor, 1);
   }
 
-  if (
-    lower.includes('torrent') ||
-    lower.includes('arr') ||
-    lower.includes('client')
-  ) {
-    return 'Clients';
+  function renderValidation(validation) {
+    ageWindowValidation = validation;
+    if (ageWindowValidation.ok) {
+      status.textContent = 'Current ratio: ' + formatDecimal(ageWindowValidation.ratio, 2) + 'x (required 2.0x–5.0x).';
+      status.classList.remove('invalid');
+    } else {
+      status.textContent = ageWindowValidation.errors.join(' ');
+      status.classList.add('invalid');
+    }
   }
 
-  if (
-    lower.includes('rss') ||
-    lower.includes('search') ||
-    lower.includes('inject') ||
-    lower.includes('action')
-  ) {
-    return 'Automation';
+  function commitState() {
+    const unitMs = AGE_WINDOW_UNIT_TO_MS[sharedUnit];
+    configObj[AGE_WINDOW_KEY_RECENT] = formatDurationForConfig(recentMs / unitMs, sharedUnit);
+    configObj[AGE_WINDOW_KEY_OLDER] = formatDurationForConfig(olderMs / unitMs, sharedUnit);
+    renderValidation(validateAgeWindow(configObj));
   }
 
-  if (
-    lower.includes('match') ||
-    lower.includes('fuzzy') ||
-    lower.includes('strict') ||
-    lower.includes('episode') ||
-    lower.includes('season') ||
-    lower.includes('size') ||
-    lower.includes('score') ||
-    lower.includes('exclude')
-  ) {
-    return 'Matching Rules';
+  function readPositiveNumber(input) {
+    const parsed = Number(input.value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
-  if (
-    lower.includes('schedule') ||
-    lower.includes('cron') ||
-    lower.includes('interval') ||
-    lower.includes('delay') ||
-    lower.includes('timeout') ||
-    lower.includes('retry') ||
-    lower.includes('concurr') ||
-    lower.includes('sleep')
-  ) {
-    return 'Scheduling & Limits';
+  function onRecentChange() {
+    const next = readPositiveNumber(recentInput);
+    if (!next) {
+      configObj[AGE_WINDOW_KEY_RECENT] = String(recentInput.value || '').trim();
+      renderValidation(validateAgeWindow(configObj));
+      return;
+    }
+    recentMs = next * AGE_WINDOW_UNIT_TO_MS[sharedUnit];
+    olderMs = recentMs * factor;
+    syncInputsFromState();
+    commitState();
   }
 
-  if (
-    lower.includes('notify') ||
-    lower.includes('webhook') ||
-    lower.includes('discord') ||
-    lower.includes('telegram')
-  ) {
-    return 'Notifications';
+  function onOlderChange() {
+    const next = readPositiveNumber(olderInput);
+    if (!next) {
+      configObj[AGE_WINDOW_KEY_OLDER] = String(olderInput.value || '').trim();
+      renderValidation(validateAgeWindow(configObj));
+      return;
+    }
+    olderMs = next * AGE_WINDOW_UNIT_TO_MS[sharedUnit];
+    recentMs = olderMs / factor;
+    syncInputsFromState();
+    commitState();
   }
 
-  return 'General';
+  function onFactorChange(rawValue) {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) {
+      syncInputsFromState();
+      return;
+    }
+    factor = clampAgeFactor(numeric);
+    olderMs = recentMs * factor;
+    syncInputsFromState();
+    commitState();
+  }
+
+  recentInput.addEventListener('input', onRecentChange);
+  olderInput.addEventListener('input', onOlderChange);
+  sharedUnitSelect.addEventListener('change', () => {
+    sharedUnit = sharedUnitSelect.value;
+    syncInputsFromState();
+    commitState();
+  });
+  factorSelect.addEventListener('change', () => onFactorChange(factorSelect.value));
+
+  syncInputsFromState();
+  renderValidation(validateAgeWindow(configObj));
+  return wrapper;
 }
 
-function sortConfigGroupNames(a, b) {
-  const ai = CONFIG_GROUP_ORDER.indexOf(a);
-  const bi = CONFIG_GROUP_ORDER.indexOf(b);
-  const aOrder = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
-  const bOrder = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
-  if (aOrder !== bOrder) return aOrder - bOrder;
-  return a.localeCompare(b);
+function renderConfigSection(titleText, keys, configObj, consumed) {
+  const section = document.createElement('section');
+  section.className = 'cfg-group';
+
+  const title = document.createElement('h3');
+  title.className = 'cfg-group-title';
+  title.textContent = titleText;
+  section.appendChild(title);
+
+  const body = document.createElement('div');
+  body.className = 'cfg-group-body';
+
+  keys.forEach((key) => {
+    if (key === AGE_WINDOW_PAIR_KEY) {
+      const hasRecent = Object.prototype.hasOwnProperty.call(configObj, AGE_WINDOW_KEY_RECENT);
+      const hasOlder = Object.prototype.hasOwnProperty.call(configObj, AGE_WINDOW_KEY_OLDER);
+      if (hasRecent && hasOlder) {
+        body.appendChild(renderExcludeAgeWindow(configObj));
+        consumed.add(AGE_WINDOW_KEY_RECENT);
+        consumed.add(AGE_WINDOW_KEY_OLDER);
+        return;
+      }
+      if (hasRecent && !consumed.has(AGE_WINDOW_KEY_RECENT)) {
+        body.appendChild(renderObjectProperty(configObj, AGE_WINDOW_KEY_RECENT, true));
+        consumed.add(AGE_WINDOW_KEY_RECENT);
+      }
+      if (hasOlder && !consumed.has(AGE_WINDOW_KEY_OLDER)) {
+        body.appendChild(renderObjectProperty(configObj, AGE_WINDOW_KEY_OLDER, true));
+        consumed.add(AGE_WINDOW_KEY_OLDER);
+      }
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(configObj, key)) return;
+    if (consumed.has(key)) return;
+    body.appendChild(renderObjectProperty(configObj, key, true));
+    consumed.add(key);
+  });
+
+  if (body.childElementCount === 0) return null;
+  section.appendChild(body);
+  return section;
 }
 
 function renderConfigForm() {
@@ -1633,39 +1977,21 @@ function renderConfigForm() {
     return;
   }
 
-  const keys = Object.keys(configData);
-  if (keys.includes('apiKey')) {
-    keys.splice(keys.indexOf('apiKey'), 1);
-    keys.unshift('apiKey');
-  }
+  ageWindowValidation = validateAgeWindow(configData);
+  const consumed = new Set();
 
-  const groupedKeys = new Map();
-  keys.forEach((key) => {
-    const groupName = getConfigGroupName(key);
-    if (!groupedKeys.has(groupName)) groupedKeys.set(groupName, []);
-    groupedKeys.get(groupName).push(key);
+  CONFIG_LAYOUT.forEach((sectionDef) => {
+    const section = renderConfigSection(sectionDef.title, sectionDef.keys, configData, consumed);
+    if (section) root.appendChild(section);
   });
 
-  Array.from(groupedKeys.keys())
-    .sort(sortConfigGroupNames)
-    .forEach((groupName) => {
-      const section = document.createElement('section');
-      section.className = 'cfg-group';
-
-      const title = document.createElement('h3');
-      title.className = 'cfg-group-title';
-      title.textContent = groupName;
-      section.appendChild(title);
-
-      const body = document.createElement('div');
-      body.className = 'cfg-group-body';
-      groupedKeys.get(groupName).forEach((key) => {
-        body.appendChild(renderObjectProperty(configData, key, true));
-      });
-
-      section.appendChild(body);
-      root.appendChild(section);
-    });
+  const remainingKeys = Object.keys(configData)
+    .filter((key) => !consumed.has(key))
+    .sort((a, b) => a.localeCompare(b));
+  if (remainingKeys.length > 0) {
+    const otherSection = renderConfigSection('Other / Unclassified', remainingKeys, configData, consumed);
+    if (otherSection) root.appendChild(otherSection);
+  }
 }
 
 async function loadConfig() {
@@ -1727,6 +2053,11 @@ document.getElementById('btn-save-config').addEventListener('click', async () =>
 
   try {
     if (!configData) throw new Error('Config is not loaded yet');
+    ageWindowValidation = validateAgeWindow(configData);
+    if (!ageWindowValidation.ok) {
+      renderConfigForm();
+      throw new Error(ageWindowValidation.errors[0] || 'Search age window is invalid.');
+    }
     const content = buildConfigContent(configData);
 
     const r = await fetch('/api/config', {
